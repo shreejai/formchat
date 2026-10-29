@@ -111,6 +111,8 @@ describe("hasContactDetails", () => {
     "whatsapp 098765 43210",
     "phone (0712) 2345678",
     "call 98.765.432.10",
+    "call 98765-43210",
+    "call 98765 43210",
     "mail owner@example.com",
     "mail Owner.Name+flat@mail.co.in",
   ];
@@ -128,6 +130,11 @@ describe("hasContactDetails", () => {
     "plot 30x40, 1200 sqft, 45 lakh",
     "near sector 12, pin 440010",
     "@ Dharampeth, rent 25000",
+    // Rent and price ranges whose digits would join into a 10-digit "mobile".
+    "Rent 75000-80000 per month",
+    "rent 75000 - 80000",
+    "expected 60000-65000",
+    "budget 90000 to 95000",
   ];
 
   it.each(clean)("does not flag %j", (text) => {
