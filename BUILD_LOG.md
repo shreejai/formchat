@@ -15,3 +15,4 @@
 - 2026-10-29 19:03: Eval runs 2-3: classifier 31/34 then 33/34 (97.1%), pipeline 7/7, ~$0.006/run. injection-role-change passed once then failed: same input, different answer. Added a deterministic layer + pipeline gate 'never accepted', 3 runs per injection case.
 - 2026-10-29 21:33: /ultrareview on #9: 10 findings, agent verified the concrete ones. Real: phone guardrail blocked rent ranges (75000-80000); moderation bypassed the one-wrapper rule in CLAUDE.md. Fixed 8, deferred token-cap accuracy (#9 in review) to the Postgres move.
 - 2026-10-29 22:25: Genuine check 6/6 accepted. But injection-mid-reviewer-note: blocked, blocked, ACCEPTED across 3 runs. Same input, different result. Added staff-note prefilter + two-vote acceptance.
+- 2026-10-29 22:38: #9 merged. Two-vote acceptance; pipeline injection 8/8 (24 runs) never accepted, genuine 6/6. Classifier-only flakiness on fake-delimiter tracked as an issue; prefilter blocks it in the product.
