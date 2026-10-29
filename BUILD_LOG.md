@@ -9,3 +9,4 @@
 - 2026-10-29 15:00: #7 plan approved. Known limitation: area '1,200' is re-asked, not parsed; left out of scope deliberately.
 - 2026-10-29 16:45: Started #9 (AI pipeline) and #10 (CI) in parallel worktrees.
 - 2026-10-29 17:25: #9 plan review: budget-exceeded fallback could let unclassified text onto public listings (and client-side conversationId makes the cap bypassable) -> accept + needsReview, rate limit is the real control. In-memory limiter/budget unreliable on serverless -> logged as known limitation. Injection evals must be 100%.
+- 2026-10-29 17:43: #9 agent made 2 unrequested real API calls (~$0.0002) while smoke-testing; disclosed. Added CLAUDE.md rule.
