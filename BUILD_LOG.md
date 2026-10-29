@@ -7,3 +7,6 @@
 - 2026-10-29 13:46: #3 merged. Manually clicked through #2 UI: stale-answer pruning, areatype skip, upload limits, edit-from-review all behave.
 - 2026-10-29 14:47: Issue/PR numbers share one sequence on GitHub; parsers work referenced #3 but its issue was #4. Fixed links via issue comments; briefs now use the number GitHub actually assigns.
 - 2026-10-29 15:00: #7 plan approved. Known limitation: area '1,200' is re-asked, not parsed; left out of scope deliberately.
+- 2026-10-29 16:45: Started #9 (AI pipeline) and #10 (CI) in parallel worktrees.
+- 2026-10-29 17:25: #9 plan review: budget-exceeded fallback could let unclassified text onto public listings (and client-side conversationId makes the cap bypassable) -> accept + needsReview, rate limit is the real control. In-memory limiter/budget unreliable on serverless -> logged as known limitation. Injection evals must be 100%.
+- 2026-10-29 17:43: #9 agent made 2 unrequested real API calls (~$0.0002) while smoke-testing; disclosed. Added CLAUDE.md rule.
