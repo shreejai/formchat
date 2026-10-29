@@ -1,7 +1,8 @@
 /**
  * LLM evals against the real API. Costs money: run deliberately with `npm run eval`.
  * Prints pass rates and total cost, writes evals/results/latest.json, and fails if the
- * classifier is below 90% or any injection case fails.
+ * classifier is below 90%, any injection case fails, or the full pipeline ever accepts an
+ * injection case.
  */
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -9,18 +10,25 @@ import { beforeAll, expect, it, vi } from "vitest";
 import { classify } from "@/lib/ai/classify";
 import { setOpenAI } from "@/lib/ai/client";
 import { extract } from "@/lib/ai/extract";
+import { runDescribePipeline } from "@/lib/ai/pipeline";
 import {
   classifierVerdict,
   parseJsonl,
   passRate,
+  pipelineInjectionVerdict,
   scoreClassification,
   scoreExtraction,
+  scorePipelineSafe,
   type CaseResult,
   type ClassifierCase,
   type ExtractorCase,
 } from "./score";
 
 const CONCURRENCY = 4;
+const PIPELINE_RUNS = 3;
+
+/** Sum of costUsd from the wrapper's ai_call log lines, for calls whose cost isn't returned. */
+let loggedCostUsd = 0;
 
 function load<T>(file: string): T[] {
   return parseJsonl<T>(readFileSync(new URL(file, import.meta.url), "utf8"));
@@ -51,15 +59,25 @@ function summarise(name: string, results: CaseResult[]) {
 
 beforeAll(() => {
   setOpenAI(null);
-  // The client logs a line per call; the summary below is what matters here.
-  vi.spyOn(console, "info").mockImplementation(() => {});
+  // The client logs a line per call; the summary below is what matters here. Each line carries
+  // that call's cost, which is the only way to count the pipeline's calls.
+  vi.spyOn(console, "info").mockImplementation((line: unknown) => {
+    try {
+      const event = JSON.parse(String(line)) as { event?: string; costUsd?: unknown };
+      if (event.event === "ai_call" && typeof event.costUsd === "number") loggedCostUsd += event.costUsd;
+    } catch {
+      // Not a JSON log line.
+    }
+  });
 });
 
 it("classifier and extractor evals", async () => {
   let totalCost = 0;
 
+  const classifierCases = load<ClassifierCase>("./classifier.jsonl");
+
   // A fresh conversation per case, so the per-conversation token cap doesn't interfere.
-  const classifier = await mapPool(load<ClassifierCase>("./classifier.jsonl"), async (c) => {
+  const classifier = await mapPool(classifierCases, async (c) => {
     const { result, costUsd } = await classify(randomUUID(), c.text);
     totalCost += costUsd;
     return scoreClassification(c, result.ok ? result.data.label : null);
@@ -71,11 +89,34 @@ it("classifier and extractor evals", async () => {
     return scoreExtraction(c, result.ok ? result.data : null);
   });
 
+  // Defence in depth: the whole pipeline (prefilter, classifier, moderation) must never accept
+  // an injection case. Several runs per case, since model labels vary between calls. Blocked
+  // and re-asked results carry no cost, so it's taken from the call log instead.
+  const loggedBefore = loggedCostUsd;
+  const pipeline = await mapPool(
+    classifierCases.filter((c) => c.category === "injection"),
+    async (c) => {
+      const statuses: string[] = [];
+      for (let run = 0; run < PIPELINE_RUNS; run++) {
+        statuses.push((await runDescribePipeline(randomUUID(), c.text)).status);
+      }
+      return scorePipelineSafe(c, statuses);
+    },
+  );
+  const pipelineCost = loggedCostUsd - loggedBefore;
+  totalCost += pipelineCost;
+
   const classifierRate = summarise("classifier", classifier);
   const extractorRate = summarise("extractor", extractor);
   const verdict = classifierVerdict(classifier);
-  console.log(`\ntotal cost: $${totalCost.toFixed(6)}`);
-  for (const failure of verdict.failures) console.log(`FAIL: ${failure}`);
+  const pipelineVerdict = pipelineInjectionVerdict(pipeline);
+  console.log(
+    `\npipeline injection: ${pipeline.filter((r) => r.passed).length}/${pipeline.length} never accepted (${PIPELINE_RUNS} runs each)`,
+  );
+  for (const r of pipeline.filter((r) => !r.passed)) console.log(`  ✗ ${r.id}: got ${JSON.stringify(r.got)}`);
+  console.log(`\ntotal cost: $${totalCost.toFixed(6)} (pipeline check: $${pipelineCost.toFixed(6)})`);
+  const failures = [...verdict.failures, ...pipelineVerdict.failures];
+  for (const failure of failures) console.log(`FAIL: ${failure}`);
 
   mkdirSync(new URL("./results/", import.meta.url), { recursive: true });
   writeFileSync(
@@ -87,11 +128,12 @@ it("classifier and extractor evals", async () => {
         totalCostUsd: totalCost,
         classifier: { passRate: classifierRate, verdict, results: classifier },
         extractor: { passRate: extractorRate, results: extractor },
+        pipelineInjection: { runsPerCase: PIPELINE_RUNS, costUsd: pipelineCost, verdict: pipelineVerdict, results: pipeline },
       },
       null,
       2,
     )}\n`,
   );
 
-  expect(verdict.failures).toEqual([]);
+  expect(failures).toEqual([]);
 });
