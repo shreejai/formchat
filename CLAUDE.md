@@ -46,6 +46,7 @@ site's form is just another schema file.
 - Never hard-code secrets. Use `process.env`, and add every new variable to `.env.example` with a dummy value.
 - Never log raw user messages or PII. Log redacted text only.
 - Every OpenAI call goes through one wrapper that records tokens and cost and enforces a per-conversation token cap.
+- Never make real API calls (OpenAI or any paid service) without asking first. That includes smoke tests, `npm run eval` and running the server with a real key. Use the mocked client.
 
 ## Conventions
 
