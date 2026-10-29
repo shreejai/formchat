@@ -22,7 +22,11 @@ describe("formatAnswer", () => {
     expect(formatAnswer(q("beds"), null)).toBe("Skipped");
   });
   it("shows free text as is", () => {
-    expect(formatAnswer(q("amount"), "45 lakh")).toBe("45 lakh");
+    expect(formatAnswer(q("title"), "3BHK in Dharampeth")).toBe("3BHK in Dharampeth");
+  });
+  it("formats a stored price in rupees and an area in sq ft", () => {
+    expect(formatAnswer(q("amount"), "4500000")).toBe("₹45,00,000");
+    expect(formatAnswer(q("areatxt"), "1200.5")).toBe("1200.5 sq ft");
   });
   it("counts images", () => {
     expect(formatAnswer(q("images"), ["a.jpg"])).toBe("1 image");

@@ -22,10 +22,20 @@ export function ChatForm({
   const view = chatView(schema, state);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  const asking = view.mode === "ask" || view.mode === "edit" ? view : null;
+  const reply = asking?.pendingPrice
+    ? { input: asking.pendingPrice.input, message: asking.pendingPrice.message }
+    : asking?.notice
+      ? { message: asking.notice }
+      : undefined;
+
   const askingKey = view.mode === "ask" ? view.question.key : null;
+  const replyMessage = reply?.message;
   useEffect(() => {
-    if (askingKey) bottomRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
-  }, [askingKey]);
+    if (askingKey || replyMessage) {
+      bottomRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+    }
+  }, [askingKey, replyMessage]);
 
   const edit = (key: string) => dispatch({ type: "startEdit", key });
 
@@ -52,6 +62,7 @@ export function ChatForm({
             schema={schema}
             answers={state.answers}
             pending={view.mode === "ask" ? view.question : undefined}
+            reply={reply}
             editingKey={state.editingKey}
             onEdit={edit}
           />
@@ -65,9 +76,12 @@ export function ChatForm({
           question={view.question}
           current={view.current}
           editing={view.mode === "edit"}
+          confirming={Boolean(view.pendingPrice)}
           localities={localities}
           onAnswer={(value) => dispatch({ type: "answer", key: view.question.key, value })}
           onSkip={() => dispatch({ type: "skip", key: view.question.key })}
+          onConfirm={() => dispatch({ type: "confirmPrice" })}
+          onChange={() => dispatch({ type: "changePrice" })}
           onCancelEdit={() => dispatch({ type: "cancelEdit" })}
         />
       )}
