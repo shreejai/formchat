@@ -213,3 +213,37 @@ function parseJson(text: string): unknown {
     return undefined;
   }
 }
+
+export type ModerationResult = { ok: true; flagged: boolean } | { ok: false };
+
+/**
+ * The moderation call, through this wrapper so it's logged like every other call. It's free,
+ * so it costs 0 and isn't counted against the token cap on purpose: when the cap is reached it
+ * is the only check left before publishing, so it must still run. Callers treat { ok: false }
+ * as "couldn't check" and don't publish.
+ */
+export async function callModeration(
+  conversationId: string,
+  input: string,
+): Promise<ModerationResult> {
+  const purpose = "moderate";
+  const conversation = hashId(conversationId);
+  let model = "";
+  try {
+    model = requiredEnv("OPENAI_MODEL_MODERATION");
+    const response = await getOpenAI().moderations.create({ model, input });
+    const flagged = response.results.some((r) => r.flagged);
+    logCall({ purpose, conversation, model, costUsd: 0, flagged });
+    return { ok: true, flagged };
+  } catch (error) {
+    logCall({
+      purpose,
+      conversation,
+      model,
+      result: error instanceof APIConnectionTimeoutError ? "timeout" : "error",
+      error: error instanceof Error ? error.name : "unknown",
+      ...(error instanceof ConfigError && { detail: error.message }),
+    });
+    return { ok: false };
+  }
+}

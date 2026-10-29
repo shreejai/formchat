@@ -51,7 +51,7 @@ export async function runDescribePipeline(
   // Moderation and extraction are independent, so they run together. Extraction is wasted
   // only when moderation flags the text, which is rare.
   const [moderation, extracted] = await Promise.all([
-    moderate(text),
+    moderate(conversationId, text),
     budgetExceeded ? null : extract(conversationId, text),
   ]);
   if (!moderation.ok) return reask("unavailable");

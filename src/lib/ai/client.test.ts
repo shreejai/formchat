@@ -1,7 +1,7 @@
 import { APIConnectionTimeoutError } from "openai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { callStructured, costUsd, resetBudgets, setOpenAI, tokensUsed } from "./client";
+import { callModeration, callStructured, costUsd, resetBudgets, setOpenAI, tokensUsed } from "./client";
 import { fakeOpenAI, jsonResponse, stubAiEnv } from "./test-helpers";
 
 const schema = z.object({ label: z.enum(["yes", "no"]) });
@@ -118,6 +118,38 @@ describe("callStructured", () => {
       expect(line).not.toContain("conv-1");
       expect(line).not.toContain('"yes"');
     }
+  });
+});
+
+describe("callModeration", () => {
+  // It used to call the SDK directly, so moderation never appeared in the ai_call log.
+  it("goes through the wrapper: logged as an ai_call at zero cost, without user text", async () => {
+    fake.moderationsCreate.mockResolvedValue({ results: [{ flagged: true }] });
+    expect(await callModeration("conv-1", "secret user text")).toEqual({ ok: true, flagged: true });
+    expect(fake.moderationsCreate).toHaveBeenCalledWith({ model: "moderation-test", input: "secret user text" });
+    const line = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+    expect(line).toMatchObject({ event: "ai_call", purpose: "moderate", model: "moderation-test", costUsd: 0 });
+    for (const [logged] of log.mock.calls) {
+      expect(logged).not.toContain("secret user text");
+      expect(logged).not.toContain("conv-1");
+    }
+  });
+
+  it("still runs when the token cap is used up, and adds no tokens", async () => {
+    vi.stubEnv("AI_MAX_TOKENS_PER_CONVERSATION", "1");
+    fake.moderationsCreate.mockResolvedValue({ results: [{ flagged: false }] });
+    expect(await callModeration("conv-1", "text")).toEqual({ ok: true, flagged: false });
+    expect(tokensUsed("conv-1")).toBe(0);
+  });
+
+  it("logs and returns not-ok on failure or missing config", async () => {
+    fake.moderationsCreate.mockRejectedValue(new APIConnectionTimeoutError());
+    expect(await callModeration("conv-1", "text")).toEqual({ ok: false });
+    expect(JSON.parse(String(log.mock.calls.at(-1)?.[0]))).toMatchObject({ purpose: "moderate", result: "timeout" });
+
+    vi.stubEnv("OPENAI_MODEL_MODERATION", "");
+    expect(await callModeration("conv-1", "text")).toEqual({ ok: false });
+    expect(log.mock.calls.at(-1)?.[0]).toContain("Missing env var OPENAI_MODEL_MODERATION");
   });
 });
 
