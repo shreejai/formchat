@@ -26,7 +26,10 @@ export async function runDescribePipeline(
   input: string,
 ): Promise<DescribeResult> {
   const pre = prefilter(input);
-  if (!pre.ok) return reask(pre.reason);
+  if (!pre.ok) {
+    if ("block" in pre) return { status: "blocked", message: describeBlocked[pre.block] };
+    return reask(pre.reason);
+  }
   const text = pre.text;
 
   const classified = await classify(conversationId, text);
