@@ -23,7 +23,7 @@ No `tsx`: the eval runner is Vitest with its own config (`vitest.eval.config.mts
 - `prefilter.ts`: trim; reject empty, < 20, > 2000, no letters, phone numbers or emails. Prices like `45,00,000` must not look like phones.
 - `classify.ts`: small model → `{ label, confidence }`; confidence < 0.6 → one retry on the large model. User text only in the user message, inside delimiters, described as data.
 - `extract.ts`: small model → `{ suggestedTitle ≤ 70, highlights ≤ 6 }`. At runtime the title is dropped if it contains a number not present in the input.
-- `moderate.ts`: moderation endpoint (`OPENAI_MODEL_MODERATION`). Free, so not counted in the token cap.
+- `moderate.ts`: moderation endpoint (`OPENAI_MODEL_MODERATION`), through the wrapper (`callModeration`) so it's logged. Free, so not counted in the token cap.
 - `html.ts`: escape and wrap paragraphs in `<p>`; inverse for display and edit prefill.
 - `messages.ts`: re-ask and block messages keyed by reason.
 - `pipeline.ts`: result is `accepted { html, suggestedTitle?, highlights, cost, needsReview }` | `reask { message }` | `blocked { message }`.
@@ -48,3 +48,6 @@ Prefilter, HTML escaping (incl. `<script>`), pipeline branches, budget cap and c
 
 ## Env
 All new variables go in `.env.example` with dummy values; `.gitignore` gets `!.env.example`.
+
+## Known limitations
+- **The token cap only counts successful calls.** Tokens are recorded after a response arrives, so a call that times out or errors (which OpenAI may still bill, up to twice with `maxRetries: 1`) adds nothing, and concurrent requests for one conversation can all pass the pre-call check. The per-IP rate limit is the real bound for now. A follow-up moves the cap to Postgres and reserves the estimate before each call, reconciling with actual usage afterwards.
