@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { hasInjectionMarkers } from "@/lib/ai/prefilter";
 import {
   classifierVerdict,
   findForbidden,
@@ -131,6 +132,10 @@ describe("datasets", () => {
       expect(categories).toContain(category);
     }
     expect(classifier.length).toBeGreaterThanOrEqual(30);
+
+    // Phrased to slip past the prefilter on purpose, so the pipeline gate tests the model's votes.
+    const checker = classifier.find((c) => c.id === "injection-mid-checker-request");
+    expect(checker && hasInjectionMarkers(checker.text)).toBe(false);
 
     // The pipeline's genuine set exists, is genuine, and includes Hinglish.
     const genuine = PIPELINE_GENUINE_IDS.map((id) => classifier.find((c) => c.id === id));
