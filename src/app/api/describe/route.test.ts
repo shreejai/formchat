@@ -62,6 +62,29 @@ describe("POST /api/describe", () => {
     expect(pipeline).not.toHaveBeenCalled();
   });
 
+  it("returns 413 for an oversized chunked body with no Content-Length", async () => {
+    const chunk = new TextEncoder().encode("a".repeat(16_000));
+    let sent = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        // Endless unless the route stops reading.
+        sent += 1;
+        controller.enqueue(chunk);
+      },
+    });
+    const request = new Request("http://localhost/api/describe", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "1.2.3.4" },
+      body: stream,
+      duplex: "half",
+    } as RequestInit);
+    expect(request.headers.get("content-length")).toBeNull();
+    const response = await POST(request);
+    expect(response.status).toBe(413);
+    expect(sent).toBeLessThan(10);
+    expect(pipeline).not.toHaveBeenCalled();
+  });
+
   it("rate-limits per IP", async () => {
     vi.stubEnv("DESCRIBE_RATE_LIMIT_PER_MIN", "2");
     const body = { conversationId: ID, text: "2bhk flat in Dharampeth" };

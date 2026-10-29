@@ -18,18 +18,43 @@ function error(status: number, message: string): Response {
   return Response.json({ error: message }, { status });
 }
 
+/**
+ * The body as text, or null once it passes `maxBytes`. Counted while streaming, because a
+ * chunked request has no Content-Length and request.json() would buffer all of it.
+ */
+async function readBody(request: Request, maxBytes: number): Promise<string | null> {
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return text + decoder.decode();
+    size += value.byteLength;
+    if (size > maxBytes) {
+      await reader.cancel();
+      return null;
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+}
+
 /** Checks a property description. Returns accepted / reask / blocked from the pipeline. */
 export async function POST(request: Request): Promise<Response> {
   if (!allowRequest(clientIp(request.headers))) {
     return error(429, "Too many messages. Please wait a minute and try again.");
   }
+  // Fast path; readBody enforces the same limit when there's no Content-Length.
   if (Number(request.headers.get("content-length")) > MAX_BODY_BYTES) {
     return error(413, describeReask.too_long);
   }
+  const raw = await readBody(request, MAX_BODY_BYTES);
+  if (raw === null) return error(413, describeReask.too_long);
 
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(raw);
   } catch {
     return error(400, "Invalid request.");
   }
