@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { describeAnswer } from "./describe";
+import { z } from "zod";
+import { describeAnswer, newConversationId } from "./describe";
 import { describeUnavailable } from "./messages";
 
 const ID = "6f1c2a4e-8b3d-4c5e-9f7a-1b2c3d4e5f60";
@@ -75,5 +76,24 @@ describe("describeAnswer", () => {
       input: "hi",
       message: describeUnavailable,
     });
+  });
+});
+
+describe("newConversationId", () => {
+  // The route only accepts a valid UUID.
+  const isUuid = (id: string) => z.uuid().safeParse(id).success;
+
+  it("uses crypto.randomUUID when it exists", () => {
+    expect(newConversationId({ randomUUID: () => ID, getRandomValues: () => new Uint8Array(16) })).toBe(ID);
+  });
+
+  it("builds a valid v4 UUID without randomUUID, as on plain HTTP", () => {
+    const source = { getRandomValues: crypto.getRandomValues.bind(crypto) };
+    const ids = new Set(Array.from({ length: 50 }, () => newConversationId(source)));
+    expect(ids.size).toBe(50);
+    for (const id of ids) {
+      expect(isUuid(id)).toBe(true);
+      expect(id[14]).toBe("4");
+    }
   });
 });

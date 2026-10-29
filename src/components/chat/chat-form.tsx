@@ -4,7 +4,7 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import type { AnswerValue, FormSchema } from "@/forms/types";
 import { Composer } from "./composer";
 import { Confirmation, SubmissionPreview } from "./confirmation";
-import { describeAnswer } from "./describe";
+import { describeAnswer, newConversationId } from "./describe";
 import { ChatHeader } from "./header";
 import { suggestionMessage } from "./messages";
 import { chatReducer, chatView, initialChatState, type ChatAction, type ChatState } from "./state";
@@ -58,7 +58,7 @@ export function ChatForm({
       dispatch({ type: "answer", key, value });
       return;
     }
-    conversationId.current ??= crypto.randomUUID();
+    conversationId.current ??= newConversationId();
     setChecking(value);
     try {
       dispatch(await describeAnswer(key, value, conversationId.current));
