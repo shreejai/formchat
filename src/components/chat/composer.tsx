@@ -72,7 +72,7 @@ function TextLikeInput({
   const value = draft.trim();
 
   function send() {
-    // Price and area stay raw strings for now; parsing lands in a separate branch.
+    // Price and area are parsed by the chat reducer, which re-asks if they don't parse.
     if (value) onAnswer(value);
   }
 
@@ -280,22 +280,45 @@ function ContactInput({ current, onAnswer }: InputProps) {
   );
 }
 
+function ConfirmInput({ onConfirm, onChange }: { onConfirm: () => void; onChange: () => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button className={chip} onClick={onConfirm}>
+        Yes
+      </Button>
+      <Button variant="outline" className={chip} onClick={onChange}>
+        Change
+      </Button>
+    </div>
+  );
+}
+
 export function Composer({
   question,
   current,
   editing,
+  confirming,
   localities,
   onAnswer,
   onSkip,
+  onConfirm,
+  onChange,
   onCancelEdit,
 }: InputProps & {
   editing: boolean;
+  /** A parsed price is waiting for Yes or Change. */
+  confirming: boolean;
   localities: readonly string[];
+  onConfirm: () => void;
+  onChange: () => void;
   onCancelEdit: () => void;
 }) {
   const props = { question, current, onAnswer, onSkip };
   let input: React.ReactNode;
-  switch (question.kind) {
+  switch (confirming ? "confirm" : question.kind) {
+    case "confirm":
+      input = <ConfirmInput onConfirm={onConfirm} onChange={onChange} />;
+      break;
     case "buttons":
       input = <ButtonsInput {...props} />;
       break;

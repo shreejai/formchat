@@ -11,10 +11,19 @@ export function BotBubble({ children }: { children: React.ReactNode }) {
   );
 }
 
+export function UserBubble({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="max-w-[85%] self-end rounded-2xl rounded-br-sm bg-emerald-600 px-3.5 py-2 text-sm break-words whitespace-pre-wrap text-white">
+      {children}
+    </div>
+  );
+}
+
 export function Transcript({
   schema,
   answers,
   pending,
+  reply,
   editingKey,
   onEdit,
 }: {
@@ -22,6 +31,8 @@ export function Transcript({
   answers: Answers;
   /** The question being asked now, shown last. */
   pending?: Question;
+  /** The bot's follow-up for the current question, after what the user typed (if shown). */
+  reply?: { input?: string; message: string };
   editingKey: string | null;
   onEdit: (key: string) => void;
 }) {
@@ -53,9 +64,11 @@ export function Transcript({
           ))}
         </li>
       ))}
-      {pending && (
-        <li className="flex flex-col">
-          <BotBubble>{pending.label}</BotBubble>
+      {(pending || reply) && (
+        <li className="flex flex-col gap-2">
+          {pending && <BotBubble>{pending.label}</BotBubble>}
+          {reply?.input && <UserBubble>{reply.input}</UserBubble>}
+          {reply && <BotBubble>{reply.message}</BotBubble>}
         </li>
       )}
     </ol>
