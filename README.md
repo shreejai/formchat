@@ -20,6 +20,17 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## CI
+
+GitHub Actions runs two workflows:
+
+- **`ci.yml`**, on every pull request and every push to `main`:
+  - `build`: `npm ci`, `npm run typecheck`, `npm run lint`, `npm run test`, `next build`. Node version comes from `.nvmrc`.
+  - `secrets`: [gitleaks](https://github.com/gitleaks/gitleaks) scans the full git history. Any finding fails the build.
+- **`evals.yml`** runs `npm run eval` against the real OpenAI API, so it costs money and never runs on its own. Start it from the Actions tab ("Run workflow"), or add the `run-evals` label to a PR. With the label on, it re-runs on every push. It needs the `OPENAI_API_KEY` repo secret.
+
+Environment variables the app reads are listed in `.env.example`.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
