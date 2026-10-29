@@ -106,6 +106,7 @@ export function ChatForm({
           editing={view.mode === "edit"}
           confirming={Boolean(view.pendingPrice)}
           suggestion={view.suggestion}
+          rejected={view.notice?.input}
           localities={localities}
           onAnswer={(value) => answer(view.question.key, value)}
           onSkip={() => dispatch({ type: "skip", key: view.question.key })}

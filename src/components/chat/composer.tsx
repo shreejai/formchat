@@ -7,10 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { paragraphHtmlToText } from "@/lib/html";
 import { cn } from "@/lib/utils";
 import { mockUser } from "@/lib/mock-user";
 import { trimContact, validateContact, type ContactErrors } from "./contact";
+import { initialDraft } from "./draft";
 import { filterLocalities } from "./localities";
 import { addImageFiles, MAX_IMAGES, type FileLike } from "./upload";
 
@@ -64,13 +64,10 @@ function TextLikeInput({
   onAnswer,
   onSkip,
   localities,
-}: InputProps & { localities: readonly string[] }) {
+  rejected,
+}: InputProps & { localities: readonly string[]; rejected?: string }) {
   const multiline = question.kind === "longtext";
-  const [draft, setDraft] = useState(() => {
-    if (typeof current !== "string") return "";
-    // Descriptions are stored as escaped paragraph HTML.
-    return multiline ? paragraphHtmlToText(current) : current;
-  });
+  const [draft, setDraft] = useState(() => initialDraft(question, current, rejected));
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestions =
     question.kind === "location" ? filterLocalities(draft, localities) : [];
@@ -326,6 +323,7 @@ export function Composer({
   editing,
   confirming,
   suggestion,
+  rejected,
   localities,
   onAnswer,
   onSkip,
@@ -338,6 +336,8 @@ export function Composer({
   confirming: boolean;
   /** An AI-suggested answer, offered as Use this / Write my own. */
   suggestion?: string;
+  /** A description the server didn't accept, put back in the box to fix. */
+  rejected?: string;
   localities: readonly string[];
   onConfirm: () => void;
   onChange: () => void;
@@ -370,7 +370,7 @@ export function Composer({
       input = <ContactInput {...props} />;
       break;
     default:
-      input = <TextLikeInput {...props} localities={localities} />;
+      input = <TextLikeInput {...props} localities={localities} rejected={rejected} />;
   }
 
   return (
