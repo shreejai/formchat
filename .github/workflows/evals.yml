@@ -31,6 +31,18 @@ jobs:
 
       - run: npm ci
 
+      # The key is a secret. Model names and prices aren't, so they're repository variables
+      # (Settings → Secrets and variables → Actions → Variables). The runner stops early and
+      # names any that are missing.
       - run: npm run eval
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL_SMALL: ${{ vars.OPENAI_MODEL_SMALL }}
+          OPENAI_MODEL_LARGE: ${{ vars.OPENAI_MODEL_LARGE }}
+          OPENAI_MODEL_MODERATION: ${{ vars.OPENAI_MODEL_MODERATION }}
+          OPENAI_PRICE_SMALL_IN: ${{ vars.OPENAI_PRICE_SMALL_IN }}
+          OPENAI_PRICE_SMALL_OUT: ${{ vars.OPENAI_PRICE_SMALL_OUT }}
+          OPENAI_PRICE_LARGE_IN: ${{ vars.OPENAI_PRICE_LARGE_IN }}
+          OPENAI_PRICE_LARGE_OUT: ${{ vars.OPENAI_PRICE_LARGE_OUT }}
+          # Optional; leave unset if the model has no reasoning effort setting.
+          OPENAI_REASONING_EFFORT: ${{ vars.OPENAI_REASONING_EFFORT }}

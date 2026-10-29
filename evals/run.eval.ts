@@ -11,6 +11,7 @@ import { classify } from "@/lib/ai/classify";
 import { setOpenAI } from "@/lib/ai/client";
 import { extract } from "@/lib/ai/extract";
 import { runDescribePipeline } from "@/lib/ai/pipeline";
+import { missingEnv } from "./env";
 import {
   classifierVerdict,
   parseJsonl,
@@ -58,6 +59,13 @@ function summarise(name: string, results: CaseResult[]) {
 }
 
 beforeAll(() => {
+  const missing = missingEnv(process.env);
+  if (missing.length) {
+    throw new Error(
+      `Missing env for evals: ${missing.join(", ")}. Set them in .env.local, or in CI as ` +
+        "GitHub Actions repository variables (OPENAI_API_KEY as a secret). No API calls were made.",
+    );
+  }
   setOpenAI(null);
   // The client logs a line per call; the summary below is what matters here. Each line carries
   // that call's cost, which is the only way to count the pipeline's calls.
