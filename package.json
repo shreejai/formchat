@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eval": "vitest run --config vitest.eval.config.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
