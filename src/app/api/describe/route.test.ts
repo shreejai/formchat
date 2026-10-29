@@ -1,0 +1,76 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { runDescribePipeline } from "@/lib/ai/pipeline";
+import { allowRequest, clientIp, resetRateLimits } from "@/lib/rate-limit";
+import { POST } from "./route";
+
+vi.mock("@/lib/ai/pipeline", () => ({ runDescribePipeline: vi.fn() }));
+
+const pipeline = vi.mocked(runDescribePipeline);
+const ID = "6f1c2a4e-8b3d-4c5e-9f7a-1b2c3d4e5f60";
+
+function post(body: unknown, ip = "1.2.3.4"): Promise<Response> {
+  return POST(
+    new Request("http://localhost/api/describe", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": ip },
+      body: typeof body === "string" ? body : JSON.stringify(body),
+    }),
+  );
+}
+
+beforeEach(() => {
+  resetRateLimits();
+  pipeline.mockResolvedValue({ status: "reask", message: "again" });
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  pipeline.mockReset();
+});
+
+describe("POST /api/describe", () => {
+  it("runs the pipeline and returns its result", async () => {
+    const response = await post({ conversationId: ID, text: "2bhk flat in Dharampeth" });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: "reask", message: "again" });
+    expect(pipeline).toHaveBeenCalledWith(ID, "2bhk flat in Dharampeth");
+  });
+
+  it.each([
+    ["invalid JSON", "{nope"],
+    ["missing text", { conversationId: ID }],
+    ["non-uuid id", { conversationId: "abc", text: "hello there" }],
+    ["text not a string", { conversationId: ID, text: 42 }],
+    ["text over 4000 chars", { conversationId: ID, text: "a".repeat(4001) }],
+  ])("returns 400 for %s", async (_, body) => {
+    const response = await post(body);
+    expect(response.status).toBe(400);
+    expect(pipeline).not.toHaveBeenCalled();
+  });
+
+  it("rate-limits per IP", async () => {
+    vi.stubEnv("DESCRIBE_RATE_LIMIT_PER_MIN", "2");
+    const body = { conversationId: ID, text: "2bhk flat in Dharampeth" };
+    expect((await post(body)).status).toBe(200);
+    expect((await post(body)).status).toBe(200);
+    expect((await post(body)).status).toBe(429);
+    expect((await post(body, "5.6.7.8")).status).toBe(200);
+    expect(pipeline).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("allowRequest", () => {
+  it("resets after a minute and defaults to 10 a minute", () => {
+    for (let i = 0; i < 10; i++) expect(allowRequest("ip", 0)).toBe(true);
+    expect(allowRequest("ip", 59_999)).toBe(false);
+    expect(allowRequest("ip", 60_000)).toBe(true);
+  });
+});
+
+describe("clientIp", () => {
+  it("takes the first forwarded address, then x-real-ip", () => {
+    expect(clientIp(new Headers({ "x-forwarded-for": " 9.9.9.9 , 10.0.0.1" }))).toBe("9.9.9.9");
+    expect(clientIp(new Headers({ "x-real-ip": "8.8.8.8" }))).toBe("8.8.8.8");
+    expect(clientIp(new Headers())).toBe("unknown");
+  });
+});

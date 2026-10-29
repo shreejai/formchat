@@ -1,4 +1,5 @@
 import "server-only";
+import type { DescribeResult } from "@/lib/describe";
 import { toParagraphHtml } from "@/lib/html";
 import { classify } from "./classify";
 import type { AiFailure } from "./client";
@@ -7,25 +8,11 @@ import { describeBlocked, describeReask, type ReaskReason } from "./messages";
 import { moderate } from "./moderate";
 import { prefilter } from "./prefilter";
 
-export type PipelineResult =
-  | {
-      status: "accepted";
-      /** The user's own text, escaped, one <p> per paragraph. */
-      html: string;
-      suggestedTitle: string | null;
-      highlights: string[];
-      costUsd: number;
-      /** True when classification was skipped (token budget used up) and a person should check it. */
-      needsReview: boolean;
-    }
-  | { status: "reask"; message: string }
-  | { status: "blocked"; message: string };
-
-function reask(reason: ReaskReason): PipelineResult {
+function reask(reason: ReaskReason): DescribeResult {
   return { status: "reask", message: describeReask[reason] };
 }
 
-function reaskForFailure(reason: Exclude<AiFailure, "budget_exceeded">): PipelineResult {
+function reaskForFailure(reason: Exclude<AiFailure, "budget_exceeded">): DescribeResult {
   return reask(reason === "could_not_understand" ? "could_not_understand" : "unavailable");
 }
 
@@ -37,7 +24,7 @@ function reaskForFailure(reason: Exclude<AiFailure, "budget_exceeded">): Pipelin
 export async function runDescribePipeline(
   conversationId: string,
   input: string,
-): Promise<PipelineResult> {
+): Promise<DescribeResult> {
   const pre = prefilter(input);
   if (!pre.ok) return reask(pre.reason);
   const text = pre.text;
