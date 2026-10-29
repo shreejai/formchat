@@ -16,6 +16,11 @@ function label(value: ClassifyLabel, confidence = 0.9) {
   return jsonResponse({ label: value, confidence });
 }
 
+/** The same label from both classifier votes. */
+function votes(value: ClassifyLabel) {
+  return [label(value), label(value)];
+}
+
 function extraction(suggestedTitle: string, highlights: string[] = []) {
   return jsonResponse({ suggestedTitle, highlights });
 }
@@ -48,7 +53,7 @@ afterEach(() => {
 describe("runDescribePipeline", () => {
   it("accepts an answer with escaped html, a title and highlights", async () => {
     respond({
-      classify: [label("answer")],
+      classify: votes("answer"),
       extract: [extraction("Fully Furnished 2 BHK Flat in Dharampeth", ["Parking"])],
     });
     const result = await runDescribePipeline("c", `  ${DESC} <b>sasta</b>\n\nNew para `);
@@ -64,7 +69,7 @@ describe("runDescribePipeline", () => {
   });
 
   it("accepts a partial answer", async () => {
-    respond({ classify: [label("partial_answer")], extract: [extraction("Flat in Dharampeth")] });
+    respond({ classify: votes("partial_answer"), extract: [extraction("Flat in Dharampeth")] });
     expect(await runDescribePipeline("c", DESC)).toMatchObject({ status: "accepted" });
   });
 
@@ -92,7 +97,7 @@ describe("runDescribePipeline", () => {
   });
 
   it.each(["off_topic", "question_about_process"] as const)("re-asks on %s", async (value) => {
-    respond({ classify: [label(value)] });
+    respond({ classify: votes(value) });
     expect(await runDescribePipeline("c", DESC)).toEqual({
       status: "reask",
       message: describeReask[value],
@@ -101,15 +106,59 @@ describe("runDescribePipeline", () => {
   });
 
   it("blocks abuse or injection", async () => {
-    respond({ classify: [label("abuse_or_injection")] });
+    respond({ classify: votes("abuse_or_injection") });
     expect(await runDescribePipeline("c", DESC)).toEqual({
       status: "blocked",
       message: describeBlocked.abuse_or_injection,
     });
   });
 
+  describe("classifier votes", () => {
+    it("classifies twice and sums the cost of both votes", async () => {
+      respond({ classify: votes("answer"), extract: [extraction("Flat")] });
+      const result = await runDescribePipeline("c", DESC);
+      const purposes = fake.responsesCreate.mock.calls.map(
+        ([body]) => (body.text as { format: { name: string } }).format.name,
+      );
+      expect(purposes.filter((p) => p === "classify")).toHaveLength(2);
+      // Two classify calls and one extract, each (100 × 0.5 + 20 × 2) / 1e6.
+      if (result.status === "accepted") expect(result.costUsd).toBeCloseTo(0.00027, 10);
+    });
+
+    it("accepts when one vote is answer and the other partial_answer", async () => {
+      respond({ classify: [label("answer"), label("partial_answer")], extract: [extraction("Flat")] });
+      expect(await runDescribePipeline("c", DESC)).toMatchObject({ status: "accepted" });
+    });
+
+    it.each([
+      ["answer", "abuse_or_injection"],
+      ["abuse_or_injection", "partial_answer"],
+      ["answer", "off_topic"],
+      ["off_topic", "question_about_process"],
+    ] as const)("re-asks on disagreement (%s vs %s), without moderating or extracting", async (a, b) => {
+      respond({ classify: [label(a), label(b)] });
+      expect(await runDescribePipeline("c", DESC)).toEqual({
+        status: "reask",
+        message: describeReask.could_not_understand,
+      });
+      expect(fake.moderationsCreate).not.toHaveBeenCalled();
+      expect(fake.responsesCreate).toHaveBeenCalledTimes(2);
+    });
+
+    it("re-asks when one vote fails, even if the other says answer", async () => {
+      fake.responsesCreate
+        .mockResolvedValueOnce(label("answer"))
+        .mockRejectedValueOnce(new APIConnectionTimeoutError());
+      expect(await runDescribePipeline("c", DESC)).toEqual({
+        status: "reask",
+        message: describeReask.unavailable,
+      });
+      expect(fake.moderationsCreate).not.toHaveBeenCalled();
+    });
+  });
+
   it("blocks text flagged by moderation", async () => {
-    respond({ classify: [label("answer")], extract: [extraction("Flat")] });
+    respond({ classify: votes("answer"), extract: [extraction("Flat")] });
     fake.moderationsCreate.mockResolvedValue({ results: [{ flagged: true }] });
     expect(await runDescribePipeline("c", DESC)).toEqual({
       status: "blocked",
@@ -118,7 +167,7 @@ describe("runDescribePipeline", () => {
   });
 
   it("re-asks when moderation can't be reached", async () => {
-    respond({ classify: [label("answer")], extract: [extraction("Flat")] });
+    respond({ classify: votes("answer"), extract: [extraction("Flat")] });
     fake.moderationsCreate.mockRejectedValue(new Error("down"));
     expect(await runDescribePipeline("c", DESC)).toEqual({
       status: "reask",
@@ -143,7 +192,7 @@ describe("runDescribePipeline", () => {
   });
 
   it("still accepts when extraction fails, with no title", async () => {
-    respond({ classify: [label("answer")] });
+    respond({ classify: votes("answer") });
     expect(await runDescribePipeline("c", DESC)).toMatchObject({
       status: "accepted",
       suggestedTitle: null,
@@ -154,7 +203,7 @@ describe("runDescribePipeline", () => {
 
   it("drops a title with a number that isn't in the input", async () => {
     respond({
-      classify: [label("answer")],
+      classify: votes("answer"),
       extract: [extraction("3 BHK Flat in Dharampeth", ["3 parking spots", "Fully furnished"])],
     });
     expect(await runDescribePipeline("c", DESC)).toMatchObject({

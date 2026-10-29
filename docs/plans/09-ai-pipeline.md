@@ -26,6 +26,7 @@ No `tsx`: the eval runner is Vitest with its own config (`vitest.eval.config.mts
 - `moderate.ts`: moderation endpoint (`OPENAI_MODEL_MODERATION`), through the wrapper (`callModeration`) so it's logged. Free, so not counted in the token cap.
 - `html.ts`: escape and wrap paragraphs in `<p>`; inverse for display and edit prefill.
 - `messages.ts`: re-ask and block messages keyed by reason.
+- `pipeline.ts`: classifies twice in parallel; accepts only when both votes are `answer` / `partial_answer`. Votes that agree on another label get its handling; any other disagreement re-asks (could-not-understand). Doubles classifier cost per description, not latency.
 - `pipeline.ts`: result is `accepted { html, suggestedTitle?, highlights, cost, needsReview }` | `reask { message }` | `blocked { message }`.
   - `off_topic` / `question_about_process` / could-not-understand / timeout → reask.
   - `abuse_or_injection` / moderation flagged → blocked.

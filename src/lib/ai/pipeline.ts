@@ -1,7 +1,7 @@
 import "server-only";
 import type { DescribeResult } from "@/lib/describe";
 import { toParagraphHtml } from "@/lib/html";
-import { classify } from "./classify";
+import { classify, type ClassifyOutcome } from "./classify";
 import type { AiFailure } from "./client";
 import { extract } from "./extract";
 import { describeBlocked, describeReask, type ReaskReason } from "./messages";
@@ -16,8 +16,44 @@ function reaskForFailure(reason: Exclude<AiFailure, "budget_exceeded">): Describ
   return reask(reason === "could_not_understand" ? "could_not_understand" : "unavailable");
 }
 
+/** Independent classifier votes per description. */
+export const CLASSIFY_VOTES = 2;
+
+type Decision = { accept: true; budgetExceeded: boolean } | { accept: false; result: DescribeResult };
+
 /**
- * prefilter → classify → (answer or partial) moderate + extract. Cheapest checks first.
+ * Accepting needs every vote to say answer or partial_answer, so one lucky "answer" on an
+ * injection isn't enough. Votes that all agree on another label get that label's handling;
+ * any other disagreement re-asks, which publishes nothing.
+ */
+function decide(votes: ClassifyOutcome["result"][]): Decision {
+  if (votes.every((v) => !v.ok && v.reason === "budget_exceeded")) {
+    return { accept: true, budgetExceeded: true };
+  }
+  for (const v of votes) {
+    if (!v.ok && v.reason !== "budget_exceeded") {
+      return { accept: false, result: reaskForFailure(v.reason) };
+    }
+  }
+  const labels = votes.map((v) => (v.ok ? v.data.label : null));
+  if (labels.every((l) => l === "answer" || l === "partial_answer")) {
+    return { accept: true, budgetExceeded: false };
+  }
+  const [first] = labels;
+  if (labels.every((l) => l === first)) {
+    switch (first) {
+      case "abuse_or_injection":
+        return { accept: false, result: { status: "blocked", message: describeBlocked.abuse_or_injection } };
+      case "off_topic":
+      case "question_about_process":
+        return { accept: false, result: reask(first) };
+    }
+  }
+  return { accept: false, result: reask("could_not_understand") };
+}
+
+/**
+ * prefilter → classify (two votes) → (answer or partial) moderate + extract. Cheapest checks first.
  * When the token budget is used up, classify and extract are skipped, moderation (free) still
  * runs, and the description is accepted with needsReview.
  */
@@ -32,21 +68,14 @@ export async function runDescribePipeline(
   }
   const text = pre.text;
 
-  const classified = await classify(conversationId, text);
-  const label = classified.result;
-  let costUsd = classified.costUsd;
-
-  if (!label.ok && label.reason !== "budget_exceeded") return reaskForFailure(label.reason);
-  const budgetExceeded = !label.ok;
-  if (label.ok) {
-    switch (label.data.label) {
-      case "abuse_or_injection":
-        return { status: "blocked", message: describeBlocked.abuse_or_injection };
-      case "off_topic":
-      case "question_about_process":
-        return reask(label.data.label);
-    }
-  }
+  // In parallel, so the second vote adds cost but not latency.
+  const votes = await Promise.all(
+    Array.from({ length: CLASSIFY_VOTES }, () => classify(conversationId, text)),
+  );
+  let costUsd = votes.reduce((sum, v) => sum + v.costUsd, 0);
+  const decision = decide(votes.map((v) => v.result));
+  if (!decision.accept) return decision.result;
+  const { budgetExceeded } = decision;
 
   // Moderation and extraction are independent, so they run together. Extraction is wasted
   // only when moderation flags the text, which is rare.
