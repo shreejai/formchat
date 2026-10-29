@@ -6,3 +6,4 @@
 - 2026-10-29 13:15: Parsers plan (#3): 'commas anywhere between digits' would turn '1,5 cr' into 15 crore (10x). Required valid Indian/Western grouping instead.
 - 2026-10-29 13:46: #3 merged. Manually clicked through #2 UI: stale-answer pruning, areatype skip, upload limits, edit-from-review all behave.
 - 2026-10-29 14:47: Issue/PR numbers share one sequence on GitHub; parsers work referenced #3 but its issue was #4. Fixed links via issue comments; briefs now use the number GitHub actually assigns.
+- 2026-10-29 15:00: #7 plan approved. Known limitation: area '1,200' is re-asked, not parsed; left out of scope deliberately.
