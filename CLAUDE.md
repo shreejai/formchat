@@ -55,3 +55,4 @@ site's form is just another schema file.
 - New logic gets tests in the same PR. Bug fixes get a test that would have caught the bug.
 - Do not add new dependencies without saying so and why.
 - If a requirement is ambiguous, ask instead of guessing.
+- `BUILD_LOG.md` is maintained by me on `main` only. Agents never edit it.
