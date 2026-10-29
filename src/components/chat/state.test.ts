@@ -377,6 +377,18 @@ describe("description and title suggestion", () => {
     expect(s.answers.title).toBe("2 BHK Flat");
   });
 
+  it("editing an answered title shows the user's own title, not the suggestion again", () => {
+    const s = run([
+      ...upToPdesc,
+      accepted("pdesc", "<p>2 BHK</p>", "2 BHK Flat"),
+      answer("title", "My own title"),
+      { type: "startEdit", key: "title" },
+    ]);
+    const view = chatView(nagpurhomes, s);
+    expect(view).toMatchObject({ mode: "edit", question: { key: "title" }, current: "My own title" });
+    expect(view).not.toHaveProperty("suggestion");
+  });
+
   it("re-asks with the user's input and the message on rejection", () => {
     const s = run([
       ...upToPdesc,

@@ -258,8 +258,11 @@ export function chatView(schema: FormSchema, state: ChatState): ChatView {
   const step = getNextStep(schema, state.answers);
   const prompts = (key: string) => {
     const question = findQuestion(schema, key);
+    // Only while unanswered: editing a title the user wrote shows their title, not the old suggestion.
     const suggested =
-      question?.suggestedBy !== undefined && state.suggestion?.from === question.suggestedBy;
+      question?.suggestedBy !== undefined &&
+      state.suggestion?.from === question.suggestedBy &&
+      !Object.hasOwn(step.answers, key);
     return {
       ...(state.pendingPrice?.key === key && { pendingPrice: state.pendingPrice }),
       ...(state.notice?.key === key && {
