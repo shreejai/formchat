@@ -36,7 +36,16 @@ export function resetRateLimits(): void {
   windows.clear();
 }
 
-/** The client IP from proxy headers. Requests without one share a single bucket. */
+/**
+ * The client IP from proxy headers. Requests without one share a single bucket.
+ *
+ * Assumes Vercel, whose edge overwrites X-Forwarded-For with the real client IP, so the
+ * leftmost entry can be trusted. Behind a proxy that appends instead (e.g. `next start` behind
+ * nginx with $proxy_add_x_forwarded_for), the leftmost entry is whatever the client sent: a
+ * new random value per request gets a fresh bucket each time, and the per-IP limit stops
+ * bounding AI spend. Without any proxy header, everyone shares the "unknown" bucket. On
+ * another host, take the IP from the platform or the right-most hop your proxy adds.
+ */
 export function clientIp(headers: Headers): string {
   const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   return forwarded || headers.get("x-real-ip")?.trim() || "unknown";
