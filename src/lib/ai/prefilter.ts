@@ -54,6 +54,10 @@ const INJECTION_MARKERS: RegExp[] = [
   /\badmin\s+note\b/i,
   // Whole word, so "labelled as NMRDA plot" is fine.
   /\blabel\b[^.!?\n]{0,30}\bas\b/i,
+  // Notes to whoever checks the listing: "Note to the reviewer: …", "mark it as complete".
+  // Buyers aren't in the list, so "Note for buyers: no brokers" is fine.
+  /\bnote\s+(to|for)\s+(the\s+)?(reviewers?|moderators?|admins?|team|system|ai)\b/i,
+  /\b(mark|approve)\s+(this|it)\s+as\b/i,
   // Role changes. "you are now" and "act as" are narrowed so "you are now able to view the
   // flat" and "the study can act as a guest room" are fine.
   /\bforget\s+(that\s+)?you\s+are\b/i,
