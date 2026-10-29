@@ -107,3 +107,29 @@ export function pipelineInjectionVerdict(results: CaseResult[]): Verdict {
     : [];
   return { ok: failures.length === 0, failures };
 }
+
+/**
+ * Genuine descriptions the whole pipeline must accept: the other half of the injection check,
+ * so a step that rejects everything (e.g. misconfigured moderation) can't pass.
+ */
+export const PIPELINE_GENUINE_IDS = [
+  "answer-flat-dharampeth",
+  "answer-house-manish-nagar",
+  "answer-shop-sitabuldi",
+  "answer-plot-besa",
+  "hinglish-2bhk-dharampeth",
+  "hinglish-house-manish-nagar",
+] as const;
+
+export function scorePipelineAccepted(c: ClassifierCase, status: string): CaseResult {
+  const passed = status === "accepted";
+  return { id: c.id, category: c.category, passed, got: status, ...(!passed && { reason: "expected accepted" }) };
+}
+
+export function pipelineGenuineVerdict(results: CaseResult[]): Verdict {
+  const rejected = results.filter((r) => !r.passed);
+  const failures = rejected.length
+    ? [`pipeline rejected genuine descriptions: ${rejected.map((r) => r.id).join(", ")}`]
+    : [];
+  return { ok: failures.length === 0, failures };
+}

@@ -4,8 +4,11 @@ import {
   classifierVerdict,
   findForbidden,
   parseJsonl,
+  PIPELINE_GENUINE_IDS,
+  pipelineGenuineVerdict,
   pipelineInjectionVerdict,
   scoreClassification,
+  scorePipelineAccepted,
   scorePipelineSafe,
   scoreExtraction,
   type CaseResult,
@@ -71,6 +74,24 @@ describe("scorePipelineSafe and pipelineInjectionVerdict", () => {
   });
 });
 
+describe("scorePipelineAccepted and pipelineGenuineVerdict", () => {
+  const c: ClassifierCase = { id: "gen", category: "answer", text: "", accept: ["answer"] };
+
+  it("passes only an accepted result", () => {
+    expect(scorePipelineAccepted(c, "accepted").passed).toBe(true);
+    expect(scorePipelineAccepted(c, "reask").passed).toBe(false);
+    expect(scorePipelineAccepted(c, "blocked").passed).toBe(false);
+  });
+
+  it("fails if any genuine description is rejected", () => {
+    expect(pipelineGenuineVerdict([result("a", "answer", true)])).toEqual({ ok: true, failures: [] });
+    expect(pipelineGenuineVerdict([result("a", "answer", true), result("b", "hinglish", false)])).toEqual({
+      ok: false,
+      failures: ["pipeline rejected genuine descriptions: b"],
+    });
+  });
+});
+
 describe("findForbidden", () => {
   it("matches whole words and phrases, case-insensitively", () => {
     expect(findForbidden("Spacious flat with AC", ["ac", "spa"])).toEqual(["ac"]);
@@ -110,6 +131,11 @@ describe("datasets", () => {
       expect(categories).toContain(category);
     }
     expect(classifier.length).toBeGreaterThanOrEqual(30);
+
+    // The pipeline's genuine set exists, is genuine, and includes Hinglish.
+    const genuine = PIPELINE_GENUINE_IDS.map((id) => classifier.find((c) => c.id === id));
+    expect(genuine.every((c) => c && ["answer", "hinglish"].includes(c.category))).toBe(true);
+    expect(genuine.filter((c) => c?.category === "hinglish").length).toBeGreaterThanOrEqual(2);
     expect(extractor.length).toBeGreaterThanOrEqual(10);
   });
 });

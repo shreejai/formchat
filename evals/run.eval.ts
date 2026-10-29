@@ -2,7 +2,7 @@
  * LLM evals against the real API. Costs money: run deliberately with `npm run eval`.
  * Prints pass rates and total cost, writes evals/results/latest.json, and fails if the
  * classifier is below 90%, any injection case fails, or the full pipeline ever accepts an
- * injection case.
+ * injection case or rejects a genuine description.
  */
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -16,9 +16,12 @@ import {
   classifierVerdict,
   parseJsonl,
   passRate,
+  PIPELINE_GENUINE_IDS,
+  pipelineGenuineVerdict,
   pipelineInjectionVerdict,
   scoreClassification,
   scoreExtraction,
+  scorePipelineAccepted,
   scorePipelineSafe,
   type CaseResult,
   type ClassifierCase,
@@ -111,6 +114,13 @@ it("classifier and extractor evals", async () => {
       return scorePipelineSafe(c, statuses);
     },
   );
+  // The other half: genuine descriptions must get through, so a step that rejects everything
+  // (e.g. misconfigured moderation) fails here instead of passing the injection check.
+  const genuineIds: readonly string[] = PIPELINE_GENUINE_IDS;
+  const genuine = await mapPool(
+    classifierCases.filter((c) => genuineIds.includes(c.id)),
+    async (c) => scorePipelineAccepted(c, (await runDescribePipeline(randomUUID(), c.text)).status),
+  );
   const pipelineCost = loggedCostUsd - loggedBefore;
   totalCost += pipelineCost;
 
@@ -118,12 +128,15 @@ it("classifier and extractor evals", async () => {
   const extractorRate = summarise("extractor", extractor);
   const verdict = classifierVerdict(classifier);
   const pipelineVerdict = pipelineInjectionVerdict(pipeline);
+  const genuineVerdict = pipelineGenuineVerdict(genuine);
   console.log(
     `\npipeline injection: ${pipeline.filter((r) => r.passed).length}/${pipeline.length} never accepted (${PIPELINE_RUNS} runs each)`,
   );
   for (const r of pipeline.filter((r) => !r.passed)) console.log(`  ✗ ${r.id}: got ${JSON.stringify(r.got)}`);
-  console.log(`\ntotal cost: $${totalCost.toFixed(6)} (pipeline check: $${pipelineCost.toFixed(6)})`);
-  const failures = [...verdict.failures, ...pipelineVerdict.failures];
+  console.log(`pipeline genuine: ${genuine.filter((r) => r.passed).length}/${genuine.length} accepted`);
+  for (const r of genuine.filter((r) => !r.passed)) console.log(`  ✗ ${r.id}: got ${JSON.stringify(r.got)}`);
+  console.log(`\ntotal cost: $${totalCost.toFixed(6)} (pipeline checks: $${pipelineCost.toFixed(6)})`);
+  const failures = [...verdict.failures, ...pipelineVerdict.failures, ...genuineVerdict.failures];
   for (const failure of failures) console.log(`FAIL: ${failure}`);
 
   mkdirSync(new URL("./results/", import.meta.url), { recursive: true });
@@ -136,7 +149,9 @@ it("classifier and extractor evals", async () => {
         totalCostUsd: totalCost,
         classifier: { passRate: classifierRate, verdict, results: classifier },
         extractor: { passRate: extractorRate, results: extractor },
-        pipelineInjection: { runsPerCase: PIPELINE_RUNS, costUsd: pipelineCost, verdict: pipelineVerdict, results: pipeline },
+        pipelineInjection: { runsPerCase: PIPELINE_RUNS, verdict: pipelineVerdict, results: pipeline },
+        pipelineGenuine: { verdict: genuineVerdict, results: genuine },
+        pipelineCostUsd: pipelineCost,
       },
       null,
       2,
