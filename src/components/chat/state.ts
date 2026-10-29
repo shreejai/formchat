@@ -25,12 +25,20 @@ export type PendingPrice = {
 };
 
 /** A bot follow-up for the current question, e.g. a re-ask after a parse failure. */
-export type Notice = { key: string; message: string };
+export type Notice = {
+  key: string;
+  message: string;
+  /** What the user typed, shown before the message when it wasn't stored. */
+  input?: string;
+};
+
+/** A value suggested for questions with `suggestedBy: from`, e.g. a title from the description. */
+export type Suggestion = { from: string; value: string };
 
 /**
  * Chat UI state. The flow engine decides what to ask; this only records answers,
- * which question (if any) is being edited, whether the user has submitted, and a
- * price waiting to be confirmed or a re-ask message.
+ * which question (if any) is being edited, whether the user has submitted, a
+ * price waiting to be confirmed or a re-ask message, and AI suggestions.
  */
 export type ChatState = {
   answers: Answers;
@@ -38,6 +46,12 @@ export type ChatState = {
   submitted: boolean;
   pendingPrice: PendingPrice | null;
   notice: Notice | null;
+  suggestion: Suggestion | null;
+  /**
+   * The description was accepted without an AI check (token budget used up). Chat state
+   * only, never in the site payload; it goes on the lead record later.
+   */
+  needsReview: boolean;
 };
 
 export type ChatAction =
@@ -45,6 +59,16 @@ export type ChatAction =
   | { type: "skip"; key: string }
   | { type: "startEdit"; key: string }
   | { type: "confirmPrice" }
+  /** A longtext answer the describe API accepted. `html` is the user's escaped text. */
+  | {
+      type: "describeAccepted";
+      key: string;
+      html: string;
+      suggestedTitle: string | null;
+      needsReview: boolean;
+    }
+  /** A longtext answer the describe API didn't accept (re-ask, blocked or unreachable). */
+  | { type: "describeRejected"; key: string; input: string; message: string }
   | { type: "changePrice" }
   | { type: "cancelEdit" }
   | { type: "submit" }
@@ -56,6 +80,8 @@ export const initialChatState: ChatState = {
   submitted: false,
   pendingPrice: null,
   notice: null,
+  suggestion: null,
+  needsReview: false,
 };
 
 /** Rent above this (per month) or a sale below the floor gets a warning in the confirm. */
@@ -94,6 +120,7 @@ function store(schema: FormSchema, state: ChatState, q: Question, value: AnswerV
   // A required question can't be skipped or answered with nothing.
   if (q.required && value === null) return state;
   return {
+    ...state,
     answers: pruneAnswers(schema, { ...state.answers, [q.key]: value }),
     editingKey: null,
     submitted: false,
@@ -154,8 +181,25 @@ export function chatReducer(
         if (typeof action.value !== "string") return state;
         return answerParsed(schema, state, q, action.value);
       }
+      // Descriptions are only stored through describeAccepted, after the AI check.
+      if (q.kind === "longtext") return state;
       return store(schema, state, q, action.value);
     }
+    case "describeAccepted": {
+      const q = visibleQuestion(schema, state.answers, action.key);
+      if (!q || q.kind !== "longtext") return state;
+      return {
+        ...store(schema, state, q, action.html),
+        suggestion: action.suggestedTitle ? { from: q.key, value: action.suggestedTitle } : null,
+        needsReview: action.needsReview,
+      };
+    }
+    case "describeRejected":
+      return {
+        ...state,
+        pendingPrice: null,
+        notice: { key: action.key, message: action.message, input: action.input },
+      };
     case "confirmPrice": {
       const pending = state.pendingPrice;
       if (!pending) return state;
@@ -201,8 +245,10 @@ export type ChatView =
       current?: AnswerValue;
       /** A parsed price for this question, waiting for Yes or Change. */
       pendingPrice?: PendingPrice;
-      /** A bot follow-up for this question, e.g. a re-ask. */
-      notice?: string;
+      /** A bot follow-up for this question, e.g. a re-ask, and what the user typed. */
+      notice?: { message: string; input?: string };
+      /** An AI-suggested answer the user can accept, e.g. a title. */
+      suggestion?: string;
     }
   | { mode: "review"; progress: Progress }
   | { mode: "submitted"; progress: Progress; payload: Submission };
@@ -210,10 +256,18 @@ export type ChatView =
 /** What the screen should show for this state. */
 export function chatView(schema: FormSchema, state: ChatState): ChatView {
   const step = getNextStep(schema, state.answers);
-  const prompts = (key: string) => ({
-    ...(state.pendingPrice?.key === key && { pendingPrice: state.pendingPrice }),
-    ...(state.notice?.key === key && { notice: state.notice.message }),
-  });
+  const prompts = (key: string) => {
+    const question = findQuestion(schema, key);
+    const suggested =
+      question?.suggestedBy !== undefined && state.suggestion?.from === question.suggestedBy;
+    return {
+      ...(state.pendingPrice?.key === key && { pendingPrice: state.pendingPrice }),
+      ...(state.notice?.key === key && {
+        notice: { message: state.notice.message, input: state.notice.input },
+      }),
+      ...(suggested && { suggestion: state.suggestion?.value }),
+    };
+  };
   if (state.editingKey) {
     const question = visibleQuestion(schema, step.answers, state.editingKey);
     if (question) {

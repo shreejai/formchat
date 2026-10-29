@@ -100,7 +100,7 @@ export const nagpurhomes: FormSchema = {
       questions: [
         { key: "pdesc", label: "Description", kind: "longtext", required: true },
         // In the chat, the title is asked right after the description.
-        { key: "title", label: "Ad title", kind: "text", required: true },
+        { key: "title", label: "Ad title", kind: "text", required: true, suggestedBy: "pdesc" },
         { key: "images", label: "Images", kind: "upload", required: false },
       ],
     },

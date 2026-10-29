@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { paragraphHtmlToText } from "@/lib/html";
 import { cn } from "@/lib/utils";
 import { mockUser } from "@/lib/mock-user";
 import { trimContact, validateContact, type ContactErrors } from "./contact";
@@ -64,9 +65,13 @@ function TextLikeInput({
   onSkip,
   localities,
 }: InputProps & { localities: readonly string[] }) {
-  const [draft, setDraft] = useState(typeof current === "string" ? current : "");
-  const inputRef = useRef<HTMLInputElement>(null);
   const multiline = question.kind === "longtext";
+  const [draft, setDraft] = useState(() => {
+    if (typeof current !== "string") return "";
+    // Descriptions are stored as escaped paragraph HTML.
+    return multiline ? paragraphHtmlToText(current) : current;
+  });
+  const inputRef = useRef<HTMLInputElement>(null);
   const suggestions =
     question.kind === "location" ? filterLocalities(draft, localities) : [];
   const value = draft.trim();
@@ -280,6 +285,28 @@ function ContactInput({ current, onAnswer }: InputProps) {
   );
 }
 
+/** An AI-suggested answer (e.g. a title): use it, or switch to typing your own. */
+function SuggestionInput({
+  suggestion,
+  onAnswer,
+  onWriteOwn,
+}: {
+  suggestion: string;
+  onAnswer: (value: AnswerValue) => void;
+  onWriteOwn: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button className={chip} onClick={() => onAnswer(suggestion)}>
+        Use this
+      </Button>
+      <Button variant="outline" className={chip} onClick={onWriteOwn}>
+        Write my own
+      </Button>
+    </div>
+  );
+}
+
 function ConfirmInput({ onConfirm, onChange }: { onConfirm: () => void; onChange: () => void }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -298,6 +325,7 @@ export function Composer({
   current,
   editing,
   confirming,
+  suggestion,
   localities,
   onAnswer,
   onSkip,
@@ -308,16 +336,29 @@ export function Composer({
   editing: boolean;
   /** A parsed price is waiting for Yes or Change. */
   confirming: boolean;
+  /** An AI-suggested answer, offered as Use this / Write my own. */
+  suggestion?: string;
   localities: readonly string[];
   onConfirm: () => void;
   onChange: () => void;
   onCancelEdit: () => void;
 }) {
+  const [writingOwn, setWritingOwn] = useState(false);
   const props = { question, current, onAnswer, onSkip };
+  const mode = confirming ? "confirm" : suggestion && !writingOwn ? "suggestion" : question.kind;
   let input: React.ReactNode;
-  switch (confirming ? "confirm" : question.kind) {
+  switch (mode) {
     case "confirm":
       input = <ConfirmInput onConfirm={onConfirm} onChange={onChange} />;
+      break;
+    case "suggestion":
+      input = (
+        <SuggestionInput
+          suggestion={suggestion ?? ""}
+          onAnswer={onAnswer}
+          onWriteOwn={() => setWritingOwn(true)}
+        />
+      );
       break;
     case "buttons":
       input = <ButtonsInput {...props} />;

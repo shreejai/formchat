@@ -1,0 +1,71 @@
+import { describe, expect, it, vi } from "vitest";
+import { describeAnswer } from "./describe";
+import { describeUnavailable } from "./messages";
+
+const ID = "6f1c2a4e-8b3d-4c5e-9f7a-1b2c3d4e5f60";
+
+function reply(body: unknown, status = 200) {
+  return vi.fn(async () => new Response(JSON.stringify(body), { status }));
+}
+
+describe("describeAnswer", () => {
+  it("posts the text and conversation id", async () => {
+    const fetchFn = reply({ status: "reask", message: "More please." });
+    await describeAnswer("pdesc", "2bhk flat", ID, fetchFn);
+    expect(fetchFn).toHaveBeenCalledWith("/api/describe", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ conversationId: ID, text: "2bhk flat" }),
+    });
+  });
+
+  it("maps accepted to describeAccepted", async () => {
+    const fetchFn = reply({
+      status: "accepted",
+      html: "<p>2bhk flat</p>",
+      suggestedTitle: "2 BHK Flat",
+      highlights: [],
+      costUsd: 0.0001,
+      needsReview: false,
+    });
+    expect(await describeAnswer("pdesc", "2bhk flat", ID, fetchFn)).toEqual({
+      type: "describeAccepted",
+      key: "pdesc",
+      html: "<p>2bhk flat</p>",
+      suggestedTitle: "2 BHK Flat",
+      needsReview: false,
+    });
+  });
+
+  it.each(["reask", "blocked"])("maps %s to describeRejected with its message", async (status) => {
+    const fetchFn = reply({ status, message: "Nope." });
+    expect(await describeAnswer("pdesc", "hi", ID, fetchFn)).toEqual({
+      type: "describeRejected",
+      key: "pdesc",
+      input: "hi",
+      message: "Nope.",
+    });
+  });
+
+  it("shows the rate-limit message on 429", async () => {
+    const fetchFn = reply({ error: "Too many messages." }, 429);
+    expect(await describeAnswer("pdesc", "hi", ID, fetchFn)).toMatchObject({
+      type: "describeRejected",
+      message: "Too many messages.",
+    });
+  });
+
+  it.each([
+    ["a 500", reply({ error: "boom" }, 500)],
+    ["an unexpected body", reply({ status: "accepted", html: 42 })],
+    ["a non-JSON body", vi.fn(async () => new Response("<html>", { status: 200 }))],
+    ["a network error", vi.fn(async () => Promise.reject(new TypeError("offline")))],
+  ])("re-asks on %s", async (_, fetchFn) => {
+    expect(await describeAnswer("pdesc", "hi", ID, fetchFn)).toEqual({
+      type: "describeRejected",
+      key: "pdesc",
+      input: "hi",
+      message: describeUnavailable,
+    });
+  });
+});

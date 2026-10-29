@@ -14,6 +14,12 @@ const q = (key: string): Question => {
 };
 
 describe("formatAnswer", () => {
+  it("shows a stored description as plain text, never as markup", () => {
+    expect(formatAnswer(q("pdesc"), "<p>Nice &lt;b&gt;flat&lt;/b&gt;<br>near park</p><p>Ready</p>")).toBe(
+      "Nice <b>flat</b>\nnear park\n\nReady",
+    );
+  });
+
   it("shows option labels for button answers", () => {
     expect(formatAnswer(q("ptype"), "plot")).toBe("Plot/Land");
     expect(formatAnswer(q("areatype"), "unknown")).toBe("Don't know");
