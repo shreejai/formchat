@@ -55,6 +55,14 @@ describe("describeAnswer", () => {
     });
   });
 
+  it("shows the too-long message on 413, since resending the same text can't help", async () => {
+    const fetchFn = reply({ error: "That’s a bit long." }, 413);
+    expect(await describeAnswer("pdesc", "hi", ID, fetchFn)).toMatchObject({
+      type: "describeRejected",
+      message: "That’s a bit long.",
+    });
+  });
+
   it.each([
     ["a 500", reply({ error: "boom" }, 500)],
     ["an unexpected body", reply({ status: "accepted", html: 42 })],

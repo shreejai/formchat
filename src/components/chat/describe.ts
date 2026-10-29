@@ -40,8 +40,10 @@ export async function describeAnswer(
     });
     const data: unknown = await response.json().catch(() => null);
     if (!response.ok) {
+      // Rate limits and oversized text have messages meant for the user; resending won't help.
       const error = (data as { error?: unknown } | null)?.error;
-      return rejected(response.status === 429 && typeof error === "string" ? error : describeUnavailable);
+      const userFacing = response.status === 429 || response.status === 413;
+      return rejected(userFacing && typeof error === "string" ? error : describeUnavailable);
     }
     if (!isDescribeResult(data)) return rejected(describeUnavailable);
     if (data.status !== "accepted") return rejected(data.message);

@@ -1,14 +1,17 @@
 import { z } from "zod";
+import { describeReask } from "@/lib/ai/messages";
 import { runDescribePipeline } from "@/lib/ai/pipeline";
 import { allowRequest, clientIp } from "@/lib/rate-limit";
 
-/** Generous: the prefilter gives the friendly "too long" message at 2000 characters. */
-const MAX_TEXT_LENGTH = 4000;
+/**
+ * The only size limit here. Text length is left to the prefilter, which re-asks with the
+ * friendly "too long" message (no model call), so a long paste never dead-ends on a 400.
+ */
 const MAX_BODY_BYTES = 32_000;
 
 const DescribeRequest = z.object({
   conversationId: z.uuid(),
-  text: z.string().max(MAX_TEXT_LENGTH),
+  text: z.string(),
 });
 
 function error(status: number, message: string): Response {
@@ -21,7 +24,7 @@ export async function POST(request: Request): Promise<Response> {
     return error(429, "Too many messages. Please wait a minute and try again.");
   }
   if (Number(request.headers.get("content-length")) > MAX_BODY_BYTES) {
-    return error(413, "That message is too long.");
+    return error(413, describeReask.too_long);
   }
 
   let body: unknown;

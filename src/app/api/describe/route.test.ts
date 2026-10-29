@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describeReask } from "@/lib/ai/messages";
 import { runDescribePipeline } from "@/lib/ai/pipeline";
 import { allowRequest, clientIp, resetRateLimits } from "@/lib/rate-limit";
 import { POST } from "./route";
@@ -8,11 +9,11 @@ vi.mock("@/lib/ai/pipeline", () => ({ runDescribePipeline: vi.fn() }));
 const pipeline = vi.mocked(runDescribePipeline);
 const ID = "6f1c2a4e-8b3d-4c5e-9f7a-1b2c3d4e5f60";
 
-function post(body: unknown, ip = "1.2.3.4"): Promise<Response> {
+function post(body: unknown, ip = "1.2.3.4", headers: Record<string, string> = {}): Promise<Response> {
   return POST(
     new Request("http://localhost/api/describe", {
       method: "POST",
-      headers: { "content-type": "application/json", "x-forwarded-for": ip },
+      headers: { "content-type": "application/json", "x-forwarded-for": ip, ...headers },
       body: typeof body === "string" ? body : JSON.stringify(body),
     }),
   );
@@ -41,10 +42,23 @@ describe("POST /api/describe", () => {
     ["missing text", { conversationId: ID }],
     ["non-uuid id", { conversationId: "abc", text: "hello there" }],
     ["text not a string", { conversationId: ID, text: 42 }],
-    ["text over 4000 chars", { conversationId: ID, text: "a".repeat(4001) }],
   ])("returns 400 for %s", async (_, body) => {
     const response = await post(body);
     expect(response.status).toBe(400);
+    expect(pipeline).not.toHaveBeenCalled();
+  });
+
+  it("leaves long text to the prefilter, which re-asks instead of a dead-end 400", async () => {
+    const text = "a".repeat(5000);
+    expect((await post({ conversationId: ID, text })).status).toBe(200);
+    expect(pipeline).toHaveBeenCalledWith(ID, text);
+  });
+
+  it("returns 413 with the too-long message for an oversized body", async () => {
+    const body = JSON.stringify({ conversationId: ID, text: "a".repeat(40_000) });
+    const response = await post(body, "1.2.3.4", { "content-length": String(body.length) });
+    expect(response.status).toBe(413);
+    expect(await response.json()).toEqual({ error: describeReask.too_long });
     expect(pipeline).not.toHaveBeenCalled();
   });
 
