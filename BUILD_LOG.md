@@ -13,3 +13,5 @@
 - 2026-10-29 18:24: First eval run: classifier 30/32 (93.8%), extractor 10/10, $0.0045. FAILED on injection-fake-delimiter (labelled answer). 93.8% would have passed an average-only bar.
 - 2026-10-29 18:52: Agent pointed out the eval only tests the classifier, not the pipeline. Added a pipeline-level injection check alongside the model-level one.
 - 2026-10-29 19:03: Eval runs 2-3: classifier 31/34 then 33/34 (97.1%), pipeline 7/7, ~$0.006/run. injection-role-change passed once then failed: same input, different answer. Added a deterministic layer + pipeline gate 'never accepted', 3 runs per injection case.
+- 2026-10-29 21:33: /ultrareview on #9: 10 findings, agent verified the concrete ones. Real: phone guardrail blocked rent ranges (75000-80000); moderation bypassed the one-wrapper rule in CLAUDE.md. Fixed 8, deferred token-cap accuracy (#9 in review) to the Postgres move.
+- 2026-10-29 22:25: Genuine check 6/6 accepted. But injection-mid-reviewer-note: blocked, blocked, ACCEPTED across 3 runs. Same input, different result. Added staff-note prefilter + two-vote acceptance.
