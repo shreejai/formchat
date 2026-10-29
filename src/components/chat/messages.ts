@@ -34,3 +34,11 @@ export function priceConfirm(
 }
 
 export const priceChange = "No problem. What should the price be?";
+
+/** The describe API couldn't be reached or gave an unexpected reply. */
+export const describeUnavailable = "Sorry, I couldn’t check that just now. Please send it again.";
+
+/** The bot's line above the Use this / Write my own chips. */
+export function suggestionMessage(value: string): string {
+  return `How about this? “${value}”`;
+}

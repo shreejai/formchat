@@ -17,6 +17,13 @@ const run = (actions: ChatAction[], from: ChatState = initialChatState) =>
 
 const answer = (key: string, value: AnswerValue): ChatAction => ({ type: "answer", key, value });
 
+const accepted = (
+  key: string,
+  html: string,
+  suggestedTitle: string | null = null,
+  needsReview = false,
+): ChatAction => ({ type: "describeAccepted", key, html, suggestedTitle, needsReview });
+
 function askedKey(state: ChatState): string | undefined {
   const view = chatView(nagpurhomes, state);
   return view.mode === "ask" || view.mode === "edit" ? view.question.key : undefined;
@@ -37,7 +44,7 @@ const residentialUpToPrice: ChatAction[] = [
 
 const fullResidential: ChatAction[] = [
   ...residentialUpToPrice,
-  answer("pdesc", "Corner flat near the park."),
+  accepted("pdesc", "<p>Corner flat near the park.</p>"),
   answer("title", "3BHK in Dharampeth"),
   answer("images", ["front.jpg", "kitchen.jpg"]),
   answer("contact", mockUser),
@@ -185,7 +192,7 @@ describe("price and area parsing", () => {
     expect(chatView(nagpurhomes, s)).toMatchObject({
       mode: "ask",
       question: { key: "amount" },
-      notice: "No problem. What should the price be?",
+      notice: { message: "No problem. What should the price be?" },
     });
   });
 
@@ -226,7 +233,7 @@ describe("price and area parsing", () => {
     expect(s.pendingPrice).toBeNull();
     expect(chatView(nagpurhomes, s)).toMatchObject({
       question: { key: "amount" },
-      notice: "Please give one number, like 45 lakh.",
+      notice: { message: "Please give one number, like 45 lakh." },
     });
   });
 
@@ -247,7 +254,7 @@ describe("price and area parsing", () => {
     expect(Object.hasOwn(s.answers, "areatxt")).toBe(false);
     expect(chatView(nagpurhomes, s)).toMatchObject({
       question: { key: "areatxt" },
-      notice: "Please type just the number in sq ft, without commas, like 1200 or 1200 sq ft.",
+      notice: { message: "Please type just the number in sq ft, without commas, like 1200 or 1200 sq ft." },
     });
   });
 
@@ -309,7 +316,7 @@ describe("full walk-through", () => {
       areatype: "builtup",
       areatxt: "1200",
       amount: "4500000",
-      pdesc: "Corner flat near the park.",
+      pdesc: "<p>Corner flat near the park.</p>",
       title: "3BHK in Dharampeth",
       images: ["front.jpg", "kitchen.jpg"],
       name: mockUser.name,
@@ -332,5 +339,103 @@ describe("answeredSections", () => {
   it("leaves out stale answers", () => {
     const groups = answeredSections(nagpurhomes, { ptype: "plot", beds: "3" });
     expect(groups.flatMap((g) => g.items.map((i) => i.question.key))).toEqual(["ptype"]);
+  });
+});
+
+describe("description and title suggestion", () => {
+  const upToPdesc = fullResidential.slice(0, fullResidential.findIndex((a) => "key" in a && a.key === "pdesc"));
+
+  it("does not store a typed description without the AI check", () => {
+    const s = run([...upToPdesc, answer("pdesc", "<script>x</script> flat")]);
+    expect(Object.hasOwn(s.answers, "pdesc")).toBe(false);
+    expect(askedKey(s)).toBe("pdesc");
+  });
+
+  it("stores the accepted html and offers the suggested title at the title question", () => {
+    const s = run([...upToPdesc, accepted("pdesc", "<p>2 BHK</p>", "2 BHK Flat in Dharampeth")]);
+    expect(s.answers.pdesc).toBe("<p>2 BHK</p>");
+    expect(chatView(nagpurhomes, s)).toMatchObject({
+      mode: "ask",
+      question: { key: "title" },
+      suggestion: "2 BHK Flat in Dharampeth",
+    });
+  });
+
+  it("offers no suggestion when there's no title", () => {
+    const s = run([...upToPdesc, accepted("pdesc", "<p>2 BHK</p>")]);
+    expect(chatView(nagpurhomes, s)).not.toHaveProperty("suggestion");
+  });
+
+  it("only shows the suggestion on questions suggested by that description", () => {
+    const s = run([
+      ...upToPdesc,
+      accepted("pdesc", "<p>2 BHK</p>", "2 BHK Flat"),
+      answer("title", "2 BHK Flat"),
+    ]);
+    expect(askedKey(s)).toBe("images");
+    expect(chatView(nagpurhomes, s)).not.toHaveProperty("suggestion");
+    expect(s.answers.title).toBe("2 BHK Flat");
+  });
+
+  it("editing an answered title shows the user's own title, not the suggestion again", () => {
+    const s = run([
+      ...upToPdesc,
+      accepted("pdesc", "<p>2 BHK</p>", "2 BHK Flat"),
+      answer("title", "My own title"),
+      { type: "startEdit", key: "title" },
+    ]);
+    const view = chatView(nagpurhomes, s);
+    expect(view).toMatchObject({ mode: "edit", question: { key: "title" }, current: "My own title" });
+    expect(view).not.toHaveProperty("suggestion");
+  });
+
+  it("re-asks with the user's input and the message on rejection", () => {
+    const s = run([
+      ...upToPdesc,
+      { type: "describeRejected", key: "pdesc", input: "hello", message: "Describe it." },
+    ]);
+    expect(Object.hasOwn(s.answers, "pdesc")).toBe(false);
+    expect(chatView(nagpurhomes, s)).toMatchObject({
+      question: { key: "pdesc" },
+      notice: { message: "Describe it.", input: "hello" },
+    });
+  });
+
+  it("an accepted description clears the re-ask", () => {
+    const s = run([
+      ...upToPdesc,
+      { type: "describeRejected", key: "pdesc", input: "hello", message: "Describe it." },
+      accepted("pdesc", "<p>2 BHK</p>"),
+    ]);
+    expect(s.notice).toBeNull();
+  });
+
+  it("keeps needsReview in chat state but out of the payload", () => {
+    const s = run([
+      ...upToPdesc,
+      accepted("pdesc", "<p>Corner flat near the park.</p>", null, true),
+      ...fullResidential.slice(upToPdesc.length + 1),
+      { type: "submit" },
+    ]);
+    expect(s.needsReview).toBe(true);
+    const view = chatView(nagpurhomes, s);
+    expect(view.mode).toBe("submitted");
+    if (view.mode === "submitted") expect(view.payload).not.toHaveProperty("needsReview");
+  });
+
+  it("a later accepted description replaces the suggestion and review flag", () => {
+    const s = run([
+      ...upToPdesc,
+      accepted("pdesc", "<p>a</p>", "Old title", true),
+      { type: "startEdit", key: "pdesc" },
+      accepted("pdesc", "<p>b</p>", "New title", false),
+    ]);
+    expect(s.suggestion).toEqual({ from: "pdesc", value: "New title" });
+    expect(s.needsReview).toBe(false);
+  });
+
+  it("ignores describeAccepted for a question that isn't longtext", () => {
+    const s = run([...upToPdesc, accepted("loc", "<p>x</p>")]);
+    expect(s.answers.loc).toBe("Dharampeth");
   });
 });

@@ -33,6 +33,11 @@ export type Question = {
   submit?: boolean;
   /** Optional questions only: the value stored when the user skips. */
   defaultValue?: string;
+  /**
+   * Key of an earlier longtext question whose AI check suggests a value for this one
+   * (e.g. a title from the description). The user can use it or write their own.
+   */
+  suggestedBy?: string;
 };
 
 export type Section = {

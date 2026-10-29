@@ -19,6 +19,24 @@ export function UserBubble({ children }: { children: React.ReactNode }) {
   );
 }
 
+function TypingBubble() {
+  return (
+    <div
+      role="status"
+      aria-label="Checking your description"
+      className="flex gap-1 self-start rounded-2xl rounded-bl-sm bg-background px-3.5 py-3 shadow-xs ring-1 ring-foreground/10"
+    >
+      {[0, 150, 300].map((delay) => (
+        <span
+          key={delay}
+          className="size-1.5 animate-bounce rounded-full bg-muted-foreground"
+          style={{ animationDelay: `${delay}ms` }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function Transcript({
   schema,
   answers,
@@ -31,8 +49,11 @@ export function Transcript({
   answers: Answers;
   /** The question being asked now, shown last. */
   pending?: Question;
-  /** The bot's follow-up for the current question, after what the user typed (if shown). */
-  reply?: { input?: string; message: string };
+  /**
+   * The bot's follow-up for the current question, after what the user typed (if shown).
+   * With `typing`, a typing indicator stands in for the message.
+   */
+  reply?: { input?: string; message?: string; typing?: boolean };
   editingKey: string | null;
   onEdit: (key: string) => void;
 }) {
@@ -68,7 +89,8 @@ export function Transcript({
         <li className="flex flex-col gap-2">
           {pending && <BotBubble>{pending.label}</BotBubble>}
           {reply?.input && <UserBubble>{reply.input}</UserBubble>}
-          {reply && <BotBubble>{reply.message}</BotBubble>}
+          {reply?.typing && <TypingBubble />}
+          {reply?.message && <BotBubble>{reply.message}</BotBubble>}
         </li>
       )}
     </ol>
