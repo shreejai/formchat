@@ -28,5 +28,8 @@ export default defineConfig({
     include: ["evals/**/*.eval.ts"],
     env: loadEnv(),
     testTimeout: 300_000,
+    // The summary is console output from a passing test. Vitest's agent reporter (picked when
+    // an AI agent runs it) hides that, so pin the default reporter to print it on every run.
+    reporters: ["default"],
   },
 });
