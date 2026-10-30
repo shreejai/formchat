@@ -52,3 +52,4 @@ All new variables go in `.env.example` with dummy values; `.gitignore` gets `!.e
 
 ## Known limitations
 - **The token cap only counts successful calls.** Tokens are recorded after a response arrives, so a call that times out or errors (which OpenAI may still bill, up to twice with `maxRetries: 1`) adds nothing, and concurrent requests for one conversation can all pass the pre-call check. The per-IP rate limit is the real bound for now. A follow-up moves the cap to Postgres and reserves the estimate before each call, reconciling with actual usage afterwards.
+- **`ai_cost_usd` covers only the accepted describe call.** The lead's `meta.ai_cost_usd` and `transcripts.ai_cost_usd` are the signed cost of the last accepted `/api/describe` call; re-asked, blocked and replaced calls aren't counted, so they under-report a conversation's spend. Per-conversation totals move to the server with #14.
