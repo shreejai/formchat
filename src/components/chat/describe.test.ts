@@ -48,6 +48,7 @@ describe("describeAnswer", () => {
       key: "pdesc",
       input: "hi",
       message: "Nope.",
+      outcome: status,
     });
   });
 
@@ -56,6 +57,7 @@ describe("describeAnswer", () => {
     expect(await describeAnswer("pdesc", "hi", ID, fetchFn)).toMatchObject({
       type: "describeRejected",
       message: "Too many messages.",
+      outcome: "rate_limited",
     });
   });
 
@@ -64,6 +66,7 @@ describe("describeAnswer", () => {
     expect(await describeAnswer("pdesc", "hi", ID, fetchFn)).toMatchObject({
       type: "describeRejected",
       message: "That’s a bit long.",
+      outcome: "too_long",
     });
   });
 
@@ -82,6 +85,7 @@ describe("describeAnswer", () => {
       key: "pdesc",
       input: "hi",
       message: describeUnavailable,
+      outcome: "unavailable",
     });
   });
 });

@@ -32,6 +32,15 @@ export type Notice = {
   input?: string;
 };
 
+/**
+ * An input the chat didn't store, sent with the submit for analysis only. `outcome` is e.g.
+ * "reask:range" (a parser re-ask) or "blocked" (from /api/describe).
+ */
+export type Attempt = { key: string; text: string; outcome: string };
+
+/** Only the latest are kept; the server stores at most this many. */
+export const MAX_ATTEMPTS = 20;
+
 /** A value suggested for questions with `suggestedBy: from`, e.g. a title from the description. */
 export type Suggestion = { from: string; value: string };
 
@@ -55,6 +64,7 @@ export type ChatState = {
   /** From /api/describe: signs the accepted html, needsReview and cost. Sent back on submit. */
   pdescToken: string | null;
   aiCostUsd: number;
+  attempts: Attempt[];
 };
 
 export type ChatAction =
@@ -73,7 +83,7 @@ export type ChatAction =
       costUsd: number;
     }
   /** A longtext answer the describe API didn't accept (re-ask, blocked or unreachable). */
-  | { type: "describeRejected"; key: string; input: string; message: string }
+  | { type: "describeRejected"; key: string; input: string; message: string; outcome: string }
   | { type: "changePrice" }
   | { type: "cancelEdit" }
   | { type: "submit" }
@@ -89,6 +99,7 @@ export const initialChatState: ChatState = {
   needsReview: false,
   pdescToken: null,
   aiCostUsd: 0,
+  attempts: [],
 };
 
 /** Rent above this (per month) or a sale below the floor gets a warning in the confirm. */
@@ -123,6 +134,10 @@ function priceSanity(listingtype: AnswerValue | undefined, value: number): Price
   return null;
 }
 
+function withAttempt(state: ChatState, attempt: Attempt): Attempt[] {
+  return [...state.attempts, attempt].slice(-MAX_ATTEMPTS);
+}
+
 function store(schema: FormSchema, state: ChatState, q: Question, value: AnswerValue): ChatState {
   // A required question can't be skipped or answered with nothing.
   if (q.required && value === null) return state;
@@ -146,11 +161,21 @@ function answerParsed(
   if (q.kind === "number") {
     const area = parseArea(input);
     if (area.ok) return store(schema, state, q, String(area.value));
-    return { ...state, pendingPrice: null, notice: { key: q.key, message: areaRetry[area.reason] } };
+    return {
+      ...state,
+      pendingPrice: null,
+      notice: { key: q.key, message: areaRetry[area.reason] },
+      attempts: withAttempt(state, { key: q.key, text: input, outcome: `reask:${area.reason}` }),
+    };
   }
   const price = parsePrice(input);
   if (!price.ok) {
-    return { ...state, pendingPrice: null, notice: { key: q.key, message: priceRetry[price.reason] } };
+    return {
+      ...state,
+      pendingPrice: null,
+      notice: { key: q.key, message: priceRetry[price.reason] },
+      attempts: withAttempt(state, { key: q.key, text: input, outcome: `reask:${price.reason}` }),
+    };
   }
   const listingtype = state.answers.listingtype;
   const sanity = priceSanity(listingtype, price.value);
@@ -208,6 +233,7 @@ export function chatReducer(
         ...state,
         pendingPrice: null,
         notice: { key: action.key, message: action.message, input: action.input },
+        attempts: withAttempt(state, { key: action.key, text: action.input, outcome: action.outcome }),
       };
     case "confirmPrice": {
       const pending = state.pendingPrice;
