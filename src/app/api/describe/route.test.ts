@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { describeReask } from "@/lib/ai/messages";
 import { runDescribePipeline } from "@/lib/ai/pipeline";
+import { verifyDescribeToken } from "@/lib/describe-token";
 import { allowRequest, clientIp, resetRateLimits } from "@/lib/rate-limit";
 import { POST } from "./route";
 
@@ -46,6 +47,28 @@ describe("POST /api/describe", () => {
     const response = await post(body);
     expect(response.status).toBe(400);
     expect(pipeline).not.toHaveBeenCalled();
+  });
+
+  it("adds a pdescToken that verifies against the accepted result", async () => {
+    vi.stubEnv("DESCRIBE_TOKEN_SECRET", "describe-test-secret");
+    pipeline.mockResolvedValue({
+      status: "accepted",
+      html: "<p>2bhk flat in Dharampeth</p>",
+      suggestedTitle: null,
+      highlights: [],
+      costUsd: 0.0002,
+      needsReview: false,
+    });
+    const data = await (await post({ conversationId: ID, text: "2bhk flat in Dharampeth" })).json();
+    expect(data.status).toBe("accepted");
+    const claims = { conversationId: ID, html: data.html, needsReview: false, costUsd: 0.0002 };
+    expect(verifyDescribeToken(claims, data.pdescToken)).toBe(true);
+    expect(verifyDescribeToken({ ...claims, needsReview: true }, data.pdescToken)).toBe(false);
+  });
+
+  it("doesn't sign a re-ask", async () => {
+    const data = await (await post({ conversationId: ID, text: "hi" })).json();
+    expect(data).not.toHaveProperty("pdescToken");
   });
 
   it("leaves long text to the prefilter, which re-asks instead of a dead-end 400", async () => {

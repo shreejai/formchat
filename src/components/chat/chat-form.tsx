@@ -1,14 +1,19 @@
 "use client";
 
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import type { AnswerValue, FormSchema } from "@/forms/types";
 import { Composer } from "./composer";
-import { Confirmation, SubmissionPreview } from "./confirmation";
+import { Confirmation, SubmissionPreview, SubmissionSuccess } from "./confirmation";
 import { describeAnswer, newConversationId } from "./describe";
 import { ChatHeader } from "./header";
 import { suggestionMessage } from "./messages";
 import { chatReducer, chatView, initialChatState, type ChatAction, type ChatState } from "./state";
+import { submitListing, submitUnavailable } from "./submit";
 import { Transcript } from "./transcript";
+
+const noSubscribe = () => () => {};
+/** `?debug=1` shows the payload under the success screen. Read on the client only. */
+const isDebug = () => new URLSearchParams(window.location.search).get("debug") === "1";
 
 export function ChatForm({
   schema,
@@ -28,6 +33,9 @@ export function ChatForm({
   const conversationId = useRef<string | null>(null);
   /** A description being checked by the server, shown with a typing indicator. */
   const [checking, setChecking] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const debug = useSyncExternalStore(noSubscribe, isDebug, () => false);
 
   const asking = view.mode === "ask" || view.mode === "edit" ? view : null;
   const reply: { input?: string; message?: string; typing?: boolean } | undefined = checking
@@ -50,8 +58,36 @@ export function ChatForm({
 
   // No edits while a description is being checked, so the reply lands on the right question.
   const edit = (key: string) => {
-    if (!checking) dispatch({ type: "startEdit", key });
+    if (checking || sending) return;
+    setSubmitError(null);
+    dispatch({ type: "startEdit", key });
   };
+
+  async function submit() {
+    if (sending) return;
+    // Both are set once the description is accepted, which every complete listing has.
+    const id = conversationId.current;
+    if (!id || !state.pdescToken) {
+      setSubmitError(submitUnavailable);
+      return;
+    }
+    setSending(true);
+    setSubmitError(null);
+    try {
+      const result = await submitListing({
+        conversationId: id,
+        answers: state.answers,
+        pdescToken: state.pdescToken,
+        needsReview: state.needsReview,
+        costUsd: state.aiCostUsd,
+        attempts: state.attempts,
+      });
+      if (result.ok) dispatch({ type: "submit" });
+      else setSubmitError(result.message);
+    } finally {
+      setSending(false);
+    }
+  }
 
   async function answer(key: string, value: AnswerValue) {
     if (asking?.question.kind !== "longtext" || typeof value !== "string") {
@@ -78,12 +114,19 @@ export function ChatForm({
           <Confirmation
             schema={schema}
             answers={state.answers}
+            sending={sending}
+            error={submitError}
             onEdit={edit}
-            onSubmit={() => dispatch({ type: "submit" })}
+            onSubmit={submit}
           />
         )}
         {view.mode === "submitted" && (
-          <SubmissionPreview payload={view.payload} onBack={() => dispatch({ type: "reopen" })} />
+          <div className="flex flex-col gap-3">
+            <SubmissionSuccess />
+            {debug && (
+              <SubmissionPreview payload={view.payload} onBack={() => dispatch({ type: "reopen" })} />
+            )}
+          </div>
         )}
         {(view.mode === "ask" || view.mode === "edit") && (
           <Transcript

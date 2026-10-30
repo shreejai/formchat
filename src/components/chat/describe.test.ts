@@ -28,6 +28,7 @@ describe("describeAnswer", () => {
       highlights: [],
       costUsd: 0.0001,
       needsReview: false,
+      pdescToken: "abc123",
     });
     expect(await describeAnswer("pdesc", "2bhk flat", ID, fetchFn)).toEqual({
       type: "describeAccepted",
@@ -35,6 +36,8 @@ describe("describeAnswer", () => {
       html: "<p>2bhk flat</p>",
       suggestedTitle: "2 BHK Flat",
       needsReview: false,
+      pdescToken: "abc123",
+      costUsd: 0.0001,
     });
   });
 
@@ -45,6 +48,7 @@ describe("describeAnswer", () => {
       key: "pdesc",
       input: "hi",
       message: "Nope.",
+      outcome: status,
     });
   });
 
@@ -53,6 +57,7 @@ describe("describeAnswer", () => {
     expect(await describeAnswer("pdesc", "hi", ID, fetchFn)).toMatchObject({
       type: "describeRejected",
       message: "Too many messages.",
+      outcome: "rate_limited",
     });
   });
 
@@ -61,12 +66,17 @@ describe("describeAnswer", () => {
     expect(await describeAnswer("pdesc", "hi", ID, fetchFn)).toMatchObject({
       type: "describeRejected",
       message: "That’s a bit long.",
+      outcome: "too_long",
     });
   });
 
   it.each([
     ["a 500", reply({ error: "boom" }, 500)],
     ["an unexpected body", reply({ status: "accepted", html: 42 })],
+    [
+      "an accepted body without a token",
+      reply({ status: "accepted", html: "<p>x</p>", suggestedTitle: null, costUsd: 0, needsReview: false }),
+    ],
     ["a non-JSON body", vi.fn(async () => new Response("<html>", { status: 200 }))],
     ["a network error", vi.fn(async () => Promise.reject(new TypeError("offline")))],
   ])("re-asks on %s", async (_, fetchFn) => {
@@ -75,6 +85,7 @@ describe("describeAnswer", () => {
       key: "pdesc",
       input: "hi",
       message: describeUnavailable,
+      outcome: "unavailable",
     });
   });
 });

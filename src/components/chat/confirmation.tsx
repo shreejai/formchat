@@ -1,4 +1,4 @@
-import { Pencil } from "lucide-react";
+import { CircleCheck, LoaderCircle, Pencil } from "lucide-react";
 import type { Answers, FormSchema } from "@/forms/types";
 import type { Submission } from "@/lib/flow";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,16 @@ import { answeredSections } from "./state";
 export function Confirmation({
   schema,
   answers,
+  sending,
+  error,
   onEdit,
   onSubmit,
 }: {
   schema: FormSchema;
   answers: Answers;
+  sending: boolean;
+  /** Why the last submit failed, shown above the button. */
+  error: string | null;
   onEdit: (key: string) => void;
   onSubmit: () => void;
 }) {
@@ -41,6 +46,7 @@ export function Confirmation({
                     variant="ghost"
                     size="sm"
                     aria-label={`Edit ${question.label}`}
+                    disabled={sending}
                     onClick={() => onEdit(question.key)}
                   >
                     <Pencil />
@@ -52,13 +58,39 @@ export function Confirmation({
           </CardContent>
         </Card>
       ))}
-      <Button size="lg" className="h-10 rounded-full" onClick={onSubmit}>
-        Looks good, submit
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+      <Button size="lg" className="h-10 rounded-full" disabled={sending} onClick={onSubmit}>
+        {sending ? (
+          <>
+            <LoaderCircle className="animate-spin" />
+            Sending…
+          </>
+        ) : (
+          "Looks good, submit"
+        )}
       </Button>
     </div>
   );
 }
 
+export function SubmissionSuccess() {
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center gap-3 py-6 text-center">
+        <CircleCheck className="size-10 text-primary" aria-hidden />
+        <p role="status" className="font-medium">
+          Thanks! Your listing has been sent for review.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Only shown with ?debug=1. */
 export function SubmissionPreview({
   payload,
   onBack,
@@ -69,7 +101,7 @@ export function SubmissionPreview({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">
-        Nothing is sent yet. This is the payload that would be submitted:
+        Debug: the lead built from your answers (the server rebuilds it before sending).
       </p>
       <pre className="overflow-x-auto rounded-xl bg-background p-4 font-mono text-xs ring-1 ring-foreground/10">
         {JSON.stringify(payload, null, 2)}

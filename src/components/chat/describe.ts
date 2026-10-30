@@ -28,7 +28,9 @@ function isDescribeResult(data: unknown): data is DescribeResult {
     d.status === "accepted" &&
     typeof d.html === "string" &&
     (d.suggestedTitle === null || typeof d.suggestedTitle === "string") &&
-    typeof d.needsReview === "boolean"
+    typeof d.needsReview === "boolean" &&
+    typeof d.costUsd === "number" &&
+    typeof d.pdescToken === "string"
   );
 }
 
@@ -42,11 +44,12 @@ export async function describeAnswer(
   conversationId: string,
   fetchFn: Fetch = fetch,
 ): Promise<ChatAction> {
-  const rejected = (message: string): ChatAction => ({
+  const rejected = (message: string, outcome = "unavailable"): ChatAction => ({
     type: "describeRejected",
     key,
     input: text,
     message,
+    outcome,
   });
   try {
     const response = await fetchFn("/api/describe", {
@@ -59,16 +62,19 @@ export async function describeAnswer(
       // Rate limits and oversized text have messages meant for the user; resending won't help.
       const error = (data as { error?: unknown } | null)?.error;
       const userFacing = response.status === 429 || response.status === 413;
-      return rejected(userFacing && typeof error === "string" ? error : describeUnavailable);
+      if (!userFacing || typeof error !== "string") return rejected(describeUnavailable);
+      return rejected(error, response.status === 429 ? "rate_limited" : "too_long");
     }
     if (!isDescribeResult(data)) return rejected(describeUnavailable);
-    if (data.status !== "accepted") return rejected(data.message);
+    if (data.status !== "accepted") return rejected(data.message, data.status);
     return {
       type: "describeAccepted",
       key,
       html: data.html,
       suggestedTitle: data.suggestedTitle,
       needsReview: data.needsReview,
+      pdescToken: data.pdescToken,
+      costUsd: data.costUsd,
     };
   } catch {
     return rejected(describeUnavailable);

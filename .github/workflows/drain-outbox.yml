@@ -1,0 +1,35 @@
+name: Drain outbox
+
+# Retries undelivered lead webhooks. Vercel's free cron is too infrequent, so this calls the
+# app's drain endpoint every 10 minutes. It wakes the Render service first, so the drain
+# doesn't hit a cold start. GitHub may run scheduled jobs a few minutes late.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: drain-outbox
+  cancel-in-progress: false
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wake the leads service
+        env:
+          LEADS_SERVICE_URL: ${{ secrets.LEADS_SERVICE_URL }}
+        # Allowed to fail: a cold start can take a while, and the drain retries anyway.
+        run: curl -fsS --max-time 90 "$LEADS_SERVICE_URL/health" || echo "health check failed; draining anyway"
+
+      - name: Drain the outbox
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 70 -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$APP_URL/api/outbox/drain"
