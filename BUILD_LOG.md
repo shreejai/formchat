@@ -25,3 +25,4 @@
 - 2026-10-30 13:01: Process limit hit by ~2300 stuck 'gk' processes from GitLens's GitKraken MCP server in Cursor (state UE, unkillable). Disabled GitLens + its MCP, restarted Mac.
 - 2026-10-30 13:51: #16 Python receiver merged; service CI job green on first run.
 - 2026-10-30 14:09: Ran Python migration on Neon by hand: leads table created.
+- 2026-10-30 16:54: Python service live on Render (Singapore, free): formchat-service.onrender.com, /health 200.
