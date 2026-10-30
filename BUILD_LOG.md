@@ -21,3 +21,5 @@
 - 2026-10-30 12:03: Python plan exposed a placeholder in my contract example (conversation_id '…uuid…'); fixed the contract instead of loosening the receiver.
 - 2026-10-30 12:11: #15: server-derived transcript (trusted) + client attempts stored separately as untrusted, redacted, capped analytics. Keeps the 'how did users feel' signal without trusting the browser.
 - 2026-10-30 12:38: #15 plan review: health ping must come before the drain (Render cold start ~1 min), and the drain needs a time budget + stop-on-first-timeout so a sleeping service doesn't burn 20 retries.
+- 2026-10-30 12:46: #16 Python receiver merged: 24 tests, signature test vector matches openssl, log-leak test proven to fail by a deliberate leak.
+- 2026-10-30 13:01: Process limit hit by ~2300 stuck 'gk' processes from GitLens's GitKraken MCP server in Cursor (state UE, unkillable). Disabled GitLens + its MCP, restarted Mac.
