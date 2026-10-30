@@ -23,3 +23,4 @@
 - 2026-10-30 12:38: #15 plan review: health ping must come before the drain (Render cold start ~1 min), and the drain needs a time budget + stop-on-first-timeout so a sleeping service doesn't burn 20 retries.
 - 2026-10-30 12:46: #16 Python receiver merged: 24 tests, signature test vector matches openssl, log-leak test proven to fail by a deliberate leak.
 - 2026-10-30 13:01: Process limit hit by ~2300 stuck 'gk' processes from GitLens's GitKraken MCP server in Cursor (state UE, unkillable). Disabled GitLens + its MCP, restarted Mac.
+- 2026-10-30 13:51: #16 Python receiver merged; service CI job green on first run.
