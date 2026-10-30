@@ -56,3 +56,19 @@ jobs:
       # Exits non-zero on any finding, which fails the build. Secrets are redacted in the log.
       - name: Scan full git history
         run: gitleaks git --redact --verbose .
+
+  service:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      # --frozen fails if uv.lock is out of date (like npm ci).
+      - run: uv sync --frozen
+      - run: uv run ruff check
+      - run: uv run ruff format --check
+      - run: uv run pytest
