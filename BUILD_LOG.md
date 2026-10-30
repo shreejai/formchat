@@ -26,3 +26,4 @@
 - 2026-10-30 13:51: #16 Python receiver merged; service CI job green on first run.
 - 2026-10-30 14:09: Ran Python migration on Neon by hand: leads table created.
 - 2026-10-30 16:54: Python service live on Render (Singapore, free): formchat-service.onrender.com, /health 200.
+- 2026-10-30 17:19: Ultrareview #2 on #15: 1 real bug (rejected-attempt analytics could push submit over the size cap, blocking the user) + 5 nits. Fixed 5; cost-per-conversation deferred to #14.
