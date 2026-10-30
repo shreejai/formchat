@@ -54,6 +54,15 @@ Both sides build and test against this file. Changing it means a new version, no
 - `lead` is exactly the output of `toSubmission()`: optional fields that were skipped are **absent**, not null. `areatype` is always present (default `"unknown"`).
 - `event_id` in the body must equal the `X-Formchat-Event-Id` header.
 
+## Test vector
+
+Both sides assert this exact signature in their tests.
+
+- Secret: `test-secret`
+- Timestamp: `1761725700`
+- Body: the JSON block under **Body** above, from the opening `{` to the closing `}`, UTF-8, LF line endings, **no trailing newline** (752 bytes). The receiver's copy is `service/tests/contract_example.json`.
+- Expected `X-Formchat-Signature`: `sha256=70a0d6ea295e9a210294cd51bbb78a582dc10b28e1f60d9a0eb80b5468bf6be0`
+
 ## Receiver rules
 
 1. Read the **raw** body bytes. Verify the signature over those exact bytes, using a constant-time comparison. Bad or missing signature → `401`.

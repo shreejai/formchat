@@ -1,0 +1,29 @@
+{
+  "event_id": "6f1c2a4e-8b3d-4c5e-9f7a-1b2c3d4e5f60",
+  "event_type": "lead.submitted",
+  "schema_version": 1,
+  "tenant": "nagpurhomes",
+  "occurred_at": "2026-10-29T08:15:00Z",
+  "lead": {
+    "usertype": "owner",
+    "listingtype": "sell",
+    "ptype": "residential",
+    "loc": "Dharampeth",
+    "beds": "3",
+    "bath": "2",
+    "areatype": "builtup",
+    "areatxt": "1200",
+    "amount": "4500000",
+    "pdesc": "<p>Spacious 3 BHK…</p>",
+    "title": "3 BHK Flat in Dharampeth",
+    "images": ["front.jpg"],
+    "name": "Test User (mock)",
+    "email": "test.user@example.com",
+    "phone": "0000000000"
+  },
+  "meta": {
+    "conversation_id": "0b7d1c3e-5a2f-4e8b-9c1d-2f3a4b5c6d7e",
+    "needs_review": false,
+    "ai_cost_usd": 0.0002
+  }
+}
