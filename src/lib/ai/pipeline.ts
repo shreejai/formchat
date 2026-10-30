@@ -1,5 +1,5 @@
 import "server-only";
-import type { DescribeResult } from "@/lib/describe";
+import type { DescribeCheck } from "@/lib/describe";
 import { toParagraphHtml } from "@/lib/html";
 import { classify, type ClassifyOutcome } from "./classify";
 import type { AiFailure } from "./client";
@@ -8,18 +8,18 @@ import { describeBlocked, describeReask, type ReaskReason } from "./messages";
 import { moderate } from "./moderate";
 import { prefilter } from "./prefilter";
 
-function reask(reason: ReaskReason): DescribeResult {
+function reask(reason: ReaskReason): DescribeCheck {
   return { status: "reask", message: describeReask[reason] };
 }
 
-function reaskForFailure(reason: Exclude<AiFailure, "budget_exceeded">): DescribeResult {
+function reaskForFailure(reason: Exclude<AiFailure, "budget_exceeded">): DescribeCheck {
   return reask(reason === "could_not_understand" ? "could_not_understand" : "unavailable");
 }
 
 /** Independent classifier votes per description. */
 export const CLASSIFY_VOTES = 2;
 
-type Decision = { accept: true; budgetExceeded: boolean } | { accept: false; result: DescribeResult };
+type Decision = { accept: true; budgetExceeded: boolean } | { accept: false; result: DescribeCheck };
 
 /**
  * Accepting needs every vote to say answer or partial_answer, so one lucky "answer" on an
@@ -60,7 +60,7 @@ function decide(votes: ClassifyOutcome["result"][]): Decision {
 export async function runDescribePipeline(
   conversationId: string,
   input: string,
-): Promise<DescribeResult> {
+): Promise<DescribeCheck> {
   const pre = prefilter(input);
   if (!pre.ok) {
     if ("block" in pre) return { status: "blocked", message: describeBlocked[pre.block] };

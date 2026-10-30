@@ -28,7 +28,9 @@ function isDescribeResult(data: unknown): data is DescribeResult {
     d.status === "accepted" &&
     typeof d.html === "string" &&
     (d.suggestedTitle === null || typeof d.suggestedTitle === "string") &&
-    typeof d.needsReview === "boolean"
+    typeof d.needsReview === "boolean" &&
+    typeof d.costUsd === "number" &&
+    typeof d.pdescToken === "string"
   );
 }
 
@@ -69,6 +71,8 @@ export async function describeAnswer(
       html: data.html,
       suggestedTitle: data.suggestedTitle,
       needsReview: data.needsReview,
+      pdescToken: data.pdescToken,
+      costUsd: data.costUsd,
     };
   } catch {
     return rejected(describeUnavailable);

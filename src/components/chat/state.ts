@@ -52,6 +52,9 @@ export type ChatState = {
    * only, never in the site payload; it goes on the lead record later.
    */
   needsReview: boolean;
+  /** From /api/describe: signs the accepted html, needsReview and cost. Sent back on submit. */
+  pdescToken: string | null;
+  aiCostUsd: number;
 };
 
 export type ChatAction =
@@ -66,6 +69,8 @@ export type ChatAction =
       html: string;
       suggestedTitle: string | null;
       needsReview: boolean;
+      pdescToken: string;
+      costUsd: number;
     }
   /** A longtext answer the describe API didn't accept (re-ask, blocked or unreachable). */
   | { type: "describeRejected"; key: string; input: string; message: string }
@@ -82,6 +87,8 @@ export const initialChatState: ChatState = {
   notice: null,
   suggestion: null,
   needsReview: false,
+  pdescToken: null,
+  aiCostUsd: 0,
 };
 
 /** Rent above this (per month) or a sale below the floor gets a warning in the confirm. */
@@ -192,6 +199,8 @@ export function chatReducer(
         ...store(schema, state, q, action.html),
         suggestion: action.suggestedTitle ? { from: q.key, value: action.suggestedTitle } : null,
         needsReview: action.needsReview,
+        pdescToken: action.pdescToken,
+        aiCostUsd: action.costUsd,
       };
     }
     case "describeRejected":

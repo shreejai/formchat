@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { describeReask } from "@/lib/ai/messages";
 import { runDescribePipeline } from "@/lib/ai/pipeline";
+import type { DescribeResult } from "@/lib/describe";
+import { signDescribeToken } from "@/lib/describe-token";
+import { error, readBody } from "@/lib/http";
 import { allowRequest, clientIp } from "@/lib/rate-limit";
 
 /**
@@ -13,32 +16,6 @@ const DescribeRequest = z.object({
   conversationId: z.uuid(),
   text: z.string(),
 });
-
-function error(status: number, message: string): Response {
-  return Response.json({ error: message }, { status });
-}
-
-/**
- * The body as text, or null once it passes `maxBytes`. Counted while streaming, because a
- * chunked request has no Content-Length and request.json() would buffer all of it.
- */
-async function readBody(request: Request, maxBytes: number): Promise<string | null> {
-  if (!request.body) return "";
-  const reader = request.body.getReader();
-  const decoder = new TextDecoder();
-  let text = "";
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) return text + decoder.decode();
-    size += value.byteLength;
-    if (size > maxBytes) {
-      await reader.cancel();
-      return null;
-    }
-    text += decoder.decode(value, { stream: true });
-  }
-}
 
 /** Checks a property description. Returns accepted / reask / blocked from the pipeline. */
 export async function POST(request: Request): Promise<Response> {
@@ -61,6 +38,18 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = DescribeRequest.safeParse(body);
   if (!parsed.success) return error(400, "Invalid request.");
 
-  const result = await runDescribePipeline(parsed.data.conversationId, parsed.data.text);
+  const { conversationId } = parsed.data;
+  const check = await runDescribePipeline(conversationId, parsed.data.text);
+  if (check.status !== "accepted") return Response.json(check);
+  // Submit only accepts a description that carries this token, so the AI checks can't be skipped.
+  const result: DescribeResult = {
+    ...check,
+    pdescToken: signDescribeToken({
+      conversationId,
+      html: check.html,
+      needsReview: check.needsReview,
+      costUsd: check.costUsd,
+    }),
+  };
   return Response.json(result);
 }

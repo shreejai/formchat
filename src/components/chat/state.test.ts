@@ -22,7 +22,15 @@ const accepted = (
   html: string,
   suggestedTitle: string | null = null,
   needsReview = false,
-): ChatAction => ({ type: "describeAccepted", key, html, suggestedTitle, needsReview });
+): ChatAction => ({
+  type: "describeAccepted",
+  key,
+  html,
+  suggestedTitle,
+  needsReview,
+  pdescToken: `token-for-${html}`,
+  costUsd: 0.0002,
+});
 
 function askedKey(state: ChatState): string | undefined {
   const view = chatView(nagpurhomes, state);
@@ -432,6 +440,12 @@ describe("description and title suggestion", () => {
     ]);
     expect(s.suggestion).toEqual({ from: "pdesc", value: "New title" });
     expect(s.needsReview).toBe(false);
+    expect(s.pdescToken).toBe("token-for-<p>b</p>");
+  });
+
+  it("keeps the describe token and cost for submit", () => {
+    const s = run([...upToPdesc, accepted("pdesc", "<p>2 BHK</p>")]);
+    expect(s).toMatchObject({ pdescToken: "token-for-<p>2 BHK</p>", aiCostUsd: 0.0002 });
   });
 
   it("ignores describeAccepted for a question that isn't longtext", () => {
