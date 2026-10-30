@@ -1,0 +1,22 @@
+{"id":"name-in-sentence","text":"Hello, this is Priya Kulkarni and the flat is mine.","known":{"name":"Priya Kulkarni","email":"priya.k@example.com","phone":"9823012345"},"expected":"Hello, this is [NAME] and the flat is mine."}
+{"id":"first-name-only","text":"Priya will show the house on Sunday.","known":{"name":"Priya Kulkarni","email":"priya.k@example.com","phone":"9823012345"},"expected":"[NAME] will show the house on Sunday."}
+{"id":"surname-lowercase","text":"ask for kulkarni madam at the gate","known":{"name":"Priya Kulkarni","email":"priya.k@example.com","phone":"9823012345"},"expected":"ask for [NAME] madam at the gate"}
+{"id":"name-possessive","text":"Priya's father built this bungalow in 1998.","known":{"name":"Priya Kulkarni","email":"priya.k@example.com","phone":"9823012345"},"expected":"[NAME]'s father built this bungalow in 1998."}
+{"id":"known-email-caps","text":"Mail PRIYA.K@EXAMPLE.COM for photos.","known":{"name":"Priya Kulkarni","email":"priya.k@example.com","phone":"9823012345"},"expected":"Mail [EMAIL] for photos."}
+{"id":"other-email","text":"My brother handles it: amit_k91@mail.co.in","known":{"name":"Priya Kulkarni","email":"priya.k@example.com","phone":"9823012345"},"expected":"My brother handles it: [EMAIL]"}
+{"id":"phone-plus91-spaced","text":"Call +91 98765 43210 after 6 pm.","expected":"Call [PHONE] after 6 pm."}
+{"id":"phone-zero-dashed","text":"Contact 098765-43210 for visit.","expected":"Contact [PHONE] for visit."}
+{"id":"phone-plain","text":"whatsapp 9876543210","expected":"whatsapp [PHONE]"}
+{"id":"phone-dots","text":"Phone: 98765.43210","expected":"Phone: [PHONE]"}
+{"id":"landline","text":"Office landline 0712 2345678, ask for manager.","expected":"Office landline [PHONE], ask for manager."}
+{"id":"known-phone-odd-format","text":"mera number 98-23-01-23-45 hai","known":{"name":"Priya Kulkarni","email":"priya.k@example.com","phone":"9823012345"},"expected":"mera number [PHONE] hai"}
+{"id":"hinglish-name-phone","text":"Mera naam Sandeep Wankhede hai, call karo 9890011223 pe","known":{"name":"Sandeep Wankhede","email":"sandeep@example.com","phone":"9890011223"},"expected":"Mera naam [NAME] hai, call karo [PHONE] pe"}
+{"id":"hinglish-email","text":"photos ke liye sandeep@example.com pe mail karo bhai","known":{"name":"Sandeep Wankhede","email":"sandeep@example.com","phone":"9890011223"},"expected":"photos ke liye [EMAIL] pe mail karo bhai"}
+{"id":"price-lakh-commas","text":"Asking price 45,00,000 only, thoda negotiable.","expected":"Asking price 45,00,000 only, thoda negotiable."}
+{"id":"price-plain","text":"Price 4500000 including parking.","expected":"Price 4500000 including parking."}
+{"id":"rent-range","text":"Rent 75000-80000 per month depending on furnishing.","expected":"Rent 75000-80000 per month depending on furnishing."}
+{"id":"area-sqft","text":"Built-up area 1200 sq ft, carpet 950 sqft.","expected":"Built-up area 1200 sq ft, carpet 950 sqft."}
+{"id":"crore-and-area","text":"Plot 2400 sqft at 1.2 crore near Wardha Road.","expected":"Plot 2400 sqft at 1.2 crore near Wardha Road."}
+{"id":"mixed-everything","text":"Sandeep here: 2 BHK, 1100 sq ft, 32 lakh. Call +91-98900-11223 or sandeep@example.com","known":{"name":"Sandeep Wankhede","email":"sandeep@example.com","phone":"9890011223"},"expected":"[NAME] here: 2 BHK, 1100 sq ft, 32 lakh. Call [PHONE] or [EMAIL]"}
+{"id":"name-not-inside-word","text":"Near Sandeepnagar bus stop.","known":{"name":"Sandeep Wankhede","email":"sandeep@example.com","phone":"9890011223"},"expected":"Near Sandeepnagar bus stop."}
+{"id":"floor-and-year","text":"4th floor of 7, built 2015, society no. 1123.","expected":"4th floor of 7, built 2015, society no. 1123."}
