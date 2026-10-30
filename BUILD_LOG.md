@@ -17,3 +17,4 @@
 - 2026-10-29 22:25: Genuine check 6/6 accepted. But injection-mid-reviewer-note: blocked, blocked, ACCEPTED across 3 runs. Same input, different result. Added staff-note prefilter + two-vote acceptance.
 - 2026-10-29 22:38: #9 merged. Two-vote acceptance; pipeline injection 8/8 (24 runs) never accepted, genuine 6/6. Classifier-only flakiness on fake-delimiter tracked as an issue; prefilter blocks it in the product.
 - 2026-10-30 09:46: Merged briefs + contract before creating issues; filled numbers in this morning.
+- 2026-10-30 11:53: #15 planning: agent caught a gap in my brief: needs_review came from the client unsigned. Now signed in the describe token (canonical JSON, not dot-joined).
