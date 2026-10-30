@@ -4,6 +4,7 @@ import OpenAI, { APIConnectionTimeoutError } from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import type { ReasoningEffort } from "openai/resources/shared";
 import type { z } from "zod";
+import { ConfigError, requiredEnv } from "@/lib/env";
 
 /*
  * The one wrapper for every OpenAI call. Nothing here reads env vars or builds the client at
@@ -31,17 +32,6 @@ export const DEFAULT_MAX_TOKENS_PER_CONVERSATION = 6000;
 const DEFAULT_TIMEOUT_MS = 15_000;
 /** Rough chars-per-token for the pre-call budget estimate. Low on purpose, to over-estimate. */
 const CHARS_PER_TOKEN = 3;
-
-/** Missing configuration. Its message names the variable and is safe to log. */
-class ConfigError extends Error {
-  name = "ConfigError";
-}
-
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new ConfigError(`Missing env var ${name}`);
-  return value;
-}
 
 function numberEnv(name: string, fallback: number): number {
   const value = Number(process.env[name]);
