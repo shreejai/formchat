@@ -22,6 +22,7 @@ function post(body: unknown, ip = "1.2.3.4", headers: Record<string, string> = {
 
 beforeEach(() => {
   resetRateLimits();
+  vi.stubEnv("DESCRIBE_TOKEN_SECRET", "describe-test-secret");
   pipeline.mockResolvedValue({ status: "reask", message: "again" });
 });
 
@@ -50,7 +51,6 @@ describe("POST /api/describe", () => {
   });
 
   it("adds a pdescToken that verifies against the accepted result", async () => {
-    vi.stubEnv("DESCRIBE_TOKEN_SECRET", "describe-test-secret");
     pipeline.mockResolvedValue({
       status: "accepted",
       html: "<p>2bhk flat in Dharampeth</p>",
@@ -64,6 +64,17 @@ describe("POST /api/describe", () => {
     const claims = { conversationId: ID, html: data.html, needsReview: false, costUsd: 0.0002 };
     expect(verifyDescribeToken(claims, data.pdescToken)).toBe(true);
     expect(verifyDescribeToken({ ...claims, needsReview: true }, data.pdescToken)).toBe(false);
+  });
+
+  it.each(["", undefined])("returns a 500 before any AI call when the secret is %j", async (value) => {
+    vi.stubEnv("DESCRIBE_TOKEN_SECRET", value);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = await post({ conversationId: ID, text: "2bhk flat in Dharampeth" });
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Something went wrong. Please try again." });
+    expect(pipeline).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith("describe: DESCRIBE_TOKEN_SECRET is not set");
+    log.mockRestore();
   });
 
   it("doesn't sign a re-ask", async () => {

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { describeReask } from "@/lib/ai/messages";
 import { runDescribePipeline } from "@/lib/ai/pipeline";
 import type { DescribeResult } from "@/lib/describe";
-import { signDescribeToken } from "@/lib/describe-token";
+import { describeTokenConfigured, signDescribeToken } from "@/lib/describe-token";
 import { error, readBody } from "@/lib/http";
 import { allowRequest, clientIp } from "@/lib/rate-limit";
 
@@ -37,6 +37,12 @@ export async function POST(request: Request): Promise<Response> {
   }
   const parsed = DescribeRequest.safeParse(body);
   if (!parsed.success) return error(400, "Invalid request.");
+
+  // Checked before the paid AI calls: without the secret an accepted result can't be signed.
+  if (!describeTokenConfigured()) {
+    console.error("describe: DESCRIBE_TOKEN_SECRET is not set");
+    return error(500, "Something went wrong. Please try again.");
+  }
 
   const { conversationId } = parsed.data;
   const check = await runDescribePipeline(conversationId, parsed.data.text);

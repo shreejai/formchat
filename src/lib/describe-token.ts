@@ -10,6 +10,11 @@ export type DescribeClaims = {
   costUsd: number;
 };
 
+/** Whether tokens can be signed. Lets /api/describe fail before spending on AI calls. */
+export function describeTokenConfigured(): boolean {
+  return Boolean(process.env.DESCRIBE_TOKEN_SECRET);
+}
+
 /**
  * HMAC-SHA256 over a JSON array, so the field order is fixed and a dot or comma inside the
  * html can't shift one field into the next. Hex.
