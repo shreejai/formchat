@@ -1,4 +1,5 @@
 import type { AreaFailure, PriceFailure } from "@/lib/parsers";
+import { MAX_TEXT } from "@/lib/submit/shared";
 
 /** Bot replies for parsed answers. Every parser failure reason has a re-ask with an example. */
 
@@ -32,6 +33,9 @@ export function priceConfirm(
     ? `That’s ${display} a month, correct?`
     : `That’s ${display}, correct?`;
 }
+
+/** A title or location longer than the server accepts. */
+export const textTooLong = `Please keep this to ${MAX_TEXT} characters or fewer.`;
 
 export const priceChange = "No problem. What should the price be?";
 

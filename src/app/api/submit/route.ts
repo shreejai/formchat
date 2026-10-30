@@ -14,7 +14,7 @@ import { validateAnswers } from "@/lib/submit/validate";
 const schema = nagpurhomes;
 const EVENT_TYPE = "lead.submitted";
 
-/** Answers plus up to 20 attempts of 2000 characters each, with room to spare. */
+/** Answers plus attempts, which the chat caps by count and length, with room to spare. */
 const MAX_BODY_BYTES = 256_000;
 
 const SubmitRequest = z.object({

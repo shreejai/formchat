@@ -35,6 +35,23 @@ describe("submitListing", () => {
     });
   });
 
+  it("names the field from a 422 invalid:<key> reason", async () => {
+    const fetchFn = reply({ error: "Check your answers.", reason: "invalid:title" }, 422);
+    expect(await submitListing(body, fetchFn)).toEqual({
+      ok: false,
+      message: "Check your answers.",
+      field: "title",
+    });
+  });
+
+  it.each([
+    ["incomplete", 422],
+    ["invalid:title", 429],
+  ])("names no field for reason %s on %i", async (reason, status) => {
+    const result = await submitListing(body, reply({ error: "x", reason }, status));
+    expect(result).not.toHaveProperty("field");
+  });
+
   it.each([
     ["a 500", reply({ error: "boom" }, 500)],
     ["an unexpected body", reply({ status: "weird" })],

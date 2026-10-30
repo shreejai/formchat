@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { mockUser } from "@/lib/mock-user";
+import { MAX_TEXT } from "@/lib/submit/shared";
 import { trimContact, validateContact, type ContactErrors } from "./contact";
 import { initialDraft } from "./draft";
 import { filterLocalities } from "./localities";
-import { addImageFiles, MAX_IMAGES, type FileLike } from "./upload";
+import { addImageFiles, MAX_IMAGES, shortFileName, type FileLike } from "./upload";
 
 type InputProps = {
   question: Question;
@@ -129,6 +130,7 @@ function TextLikeInput({
             placeholder={placeholders[question.kind]}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
+            maxLength={MAX_TEXT}
             autoComplete="off"
             className="h-10 bg-background"
           />
@@ -213,7 +215,7 @@ function UploadInput({ question, current, onAnswer, onSkip }: InputProps) {
         <Button
           className={chip}
           disabled={files.length === 0}
-          onClick={() => onAnswer(files.map((f) => f.name))}
+          onClick={() => onAnswer(files.map((f) => shortFileName(f.name)))}
         >
           Done
         </Button>
@@ -264,6 +266,7 @@ function ContactInput({ current, onAnswer }: InputProps) {
                 type={f.type}
                 autoComplete={f.autoComplete}
                 value={contact[f.key]}
+                maxLength={MAX_TEXT}
                 aria-invalid={Boolean(errors[f.key])}
                 onChange={(e) => setContact({ ...contact, [f.key]: e.target.value })}
                 className="h-9"

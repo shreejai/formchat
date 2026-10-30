@@ -3,6 +3,8 @@ import type { AnswerValue } from "@/forms/types";
 import { nagpurhomes } from "@/forms/nagpurhomes";
 import { toSubmission } from "@/lib/flow";
 import { mockUser } from "@/lib/mock-user";
+import { MAX_ATTEMPT_TEXT, MAX_ATTEMPTS_STORED, MAX_TEXT } from "@/lib/submit/shared";
+import { textTooLong } from "./messages";
 import {
   answeredSections,
   chatReducer,
@@ -462,6 +464,27 @@ describe("description and title suggestion", () => {
   });
 });
 
+describe("text length", () => {
+  const upToLoc = residentialUpToPrice.slice(0, 3);
+  const upToTitle = [...residentialUpToPrice, accepted("pdesc", "<p>Corner flat.</p>")];
+
+  it.each([
+    ["loc", upToLoc],
+    ["title", upToTitle],
+  ] as const)("re-asks a %s longer than the server accepts instead of storing it", (key, before) => {
+    const long = "a".repeat(MAX_TEXT + 1);
+    const s = run([...before, answer(key, long)]);
+    expect(s.answers).not.toHaveProperty(key);
+    expect(s.notice).toEqual({ key, message: textTooLong, input: long });
+    expect(s.attempts.at(-1)).toEqual({ key, text: long, outcome: "reask:too_long" });
+  });
+
+  it("stores one at exactly the limit", () => {
+    const s = run([...upToTitle, answer("title", "a".repeat(MAX_TEXT))]);
+    expect(s.answers.title).toBe("a".repeat(MAX_TEXT));
+  });
+});
+
 describe("attempts", () => {
   const upToPrice = residentialUpToPrice.slice(0, -2);
 
@@ -487,6 +510,20 @@ describe("attempts", () => {
 
   it("doesn't record stored answers", () => {
     expect(run(fullResidential).attempts).toEqual([]);
+  });
+
+  it("cuts each attempt's text to MAX_ATTEMPT_TEXT", () => {
+    const s = run([...residentialUpToPrice, rejected("pdesc", "x".repeat(300_000), "Too long.", "too_long")]);
+    expect(s.attempts[0].text).toBe("x".repeat(MAX_ATTEMPT_TEXT));
+  });
+
+  it("keeps a full set of long rejected pastes under the submit size limit", () => {
+    // Devanagari is 3 bytes a character in UTF-8.
+    const tries = Array.from({ length: 30 }, () => rejected("pdesc", "घ".repeat(30_000), "Too long."));
+    const s = run([...residentialUpToPrice, ...tries]);
+    const bytes = new TextEncoder().encode(JSON.stringify(s.attempts)).length;
+    expect(s.attempts).toHaveLength(MAX_ATTEMPTS_STORED);
+    expect(bytes).toBeLessThan(256_000 / 2);
   });
 
   it("keeps only the latest 20", () => {

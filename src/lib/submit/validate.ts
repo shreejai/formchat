@@ -3,8 +3,8 @@ import { validateContact } from "@/components/chat/contact";
 import type { AnswerValue, Answers, ContactValue, FormSchema, Question } from "@/forms/types";
 import { getNextStep, pruneAnswers } from "@/lib/flow";
 import { parseArea, parsePrice } from "@/lib/parsers";
+import { MAX_TEXT } from "./shared";
 
-const MAX_TEXT = 200;
 const MAX_HTML = 20_000;
 const MAX_IMAGES = 20;
 

@@ -6,6 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatAnswer } from "./format";
 import { answeredSections } from "./state";
 
+/** Why the last submit failed, and the question the server rejected, if it named one. */
+export type SubmitError = { message: string; field?: string };
+
 export function Confirmation({
   schema,
   answers,
@@ -17,11 +20,15 @@ export function Confirmation({
   schema: FormSchema;
   answers: Answers;
   sending: boolean;
-  /** Why the last submit failed, shown above the button. */
-  error: string | null;
+  /** Shown above the button; a rejected field is also named there and marked in its row. */
+  error: SubmitError | null;
   onEdit: (key: string) => void;
   onSubmit: () => void;
 }) {
+  const rejected = error?.field;
+  const rejectedLabel = schema.sections
+    .flatMap((s) => s.questions)
+    .find((q) => q.key === rejected)?.label;
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">
@@ -41,6 +48,11 @@ export function Confirmation({
                     <dd className="break-words whitespace-pre-wrap">
                       {formatAnswer(question, value)}
                     </dd>
+                    {question.key === rejected && (
+                      <p className="mt-1 text-xs text-destructive">
+                        This answer wasn&apos;t accepted. Edit it and try again.
+                      </p>
+                    )}
                   </div>
                   <Button
                     variant="ghost"
@@ -60,7 +72,8 @@ export function Confirmation({
       ))}
       {error && (
         <p role="alert" className="text-sm text-destructive">
-          {error}
+          {error.message}
+          {rejectedLabel && ` Check “${rejectedLabel}”.`}
         </p>
       )}
       <Button size="lg" className="h-10 rounded-full" disabled={sending} onClick={onSubmit}>

@@ -1,3 +1,5 @@
+import { MAX_TEXT, clip } from "@/lib/submit/shared";
+
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_IMAGES = 10;
 
@@ -34,4 +36,15 @@ export function addImageFiles<T extends FileLike>(
     );
   }
   return { files: [...current, ...added], errors };
+}
+
+/**
+ * File names are stored as the answer, so long ones (camera, WhatsApp) are shortened to what
+ * the server accepts, keeping a short extension.
+ */
+export function shortFileName(name: string): string {
+  if (name.length <= MAX_TEXT) return name;
+  const dot = name.lastIndexOf(".");
+  const ext = dot > 0 && name.length - dot <= 10 ? name.slice(dot) : "";
+  return clip(name.slice(0, name.length - ext.length), MAX_TEXT - ext.length) + ext;
 }

@@ -1,4 +1,5 @@
 import "server-only";
+import type { Attempt } from "@/lib/submit/shared";
 import { getSql, type Row } from "./client";
 
 export type OutboxStatus = "pending" | "delivered" | "failed";
@@ -9,9 +10,6 @@ export type OutboxRow = { id: string; payload: Record<string, unknown>; attempts
 /** A transcript turn. The text is already redacted. */
 export type Turn = { role: "bot" | "user"; key: string; text: string };
 
-/** An input the chat re-asked or rejected. Untrusted analytics; the text is already redacted. */
-export type Attempt = { key: string; text: string; outcome: string };
-
 export type NewSubmission = {
   eventId: string;
   eventType: string;
@@ -19,6 +17,7 @@ export type NewSubmission = {
   conversationId: string;
   tenant: string;
   turns: Turn[];
+  /** Untrusted analytics; the text is already redacted. */
   attempts: Attempt[];
   needsReview: boolean;
   aiCostUsd: number;

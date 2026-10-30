@@ -5,7 +5,8 @@ import { nagpurLocalities } from "@/forms/nagpurhomes-localities";
 import { validateContact } from "./contact";
 import { formatAnswer } from "./format";
 import { filterLocalities } from "./localities";
-import { addImageFiles, MAX_IMAGE_BYTES, MAX_IMAGES, type FileLike } from "./upload";
+import { MAX_TEXT } from "@/lib/submit/shared";
+import { addImageFiles, MAX_IMAGE_BYTES, MAX_IMAGES, shortFileName, type FileLike } from "./upload";
 
 const q = (key: string): Question => {
   const found = nagpurhomes.sections.flatMap((s) => s.questions).find((x) => x.key === key);
@@ -109,7 +110,35 @@ describe("addImageFiles", () => {
   });
 });
 
+describe("shortFileName", () => {
+  it("leaves names within the limit alone", () => {
+    expect(shortFileName("IMG_0001.jpg")).toBe("IMG_0001.jpg");
+    expect(shortFileName("a".repeat(MAX_TEXT))).toBe("a".repeat(MAX_TEXT));
+  });
+
+  it("shortens a long name to the server limit, keeping the extension", () => {
+    const name = shortFileName(`${"WhatsApp Image ".repeat(20)}.jpeg`);
+    expect(name).toHaveLength(MAX_TEXT);
+    expect(name.endsWith(".jpeg")).toBe(true);
+  });
+
+  it("never splits an emoji", () => {
+    const name = shortFileName(`a${"🏠".repeat(150)}.png`);
+    expect(name.length).toBeLessThanOrEqual(MAX_TEXT);
+    expect(name).toMatch(/^a(🏠)+\.png$/u);
+  });
+});
+
 describe("validateContact", () => {
+  it.each(["name", "email", "phone"] as const)("rejects a %s over the server limit", (key) => {
+    const contact = { name: "A", email: "a@example.com", phone: "98765 43210" };
+    const long = key === "email" ? `${"a".repeat(MAX_TEXT)}@example.com` : `9${"8".repeat(MAX_TEXT)}`;
+    expect(validateContact({ ...contact, [key]: long })).toEqual({
+      [key]: `Keep this to ${MAX_TEXT} characters or fewer.`,
+    });
+  });
+
+
   it("accepts the mock user shape", () => {
     expect(validateContact({ name: "A", email: "a@example.com", phone: "98765 43210" })).toEqual(
       {},

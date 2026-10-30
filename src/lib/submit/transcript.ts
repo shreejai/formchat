@@ -1,11 +1,10 @@
 import "server-only";
 import { formatAnswer } from "@/components/chat/format";
 import type { Answers, ContactValue, FormSchema } from "@/forms/types";
-import type { Attempt, Turn } from "@/lib/db/outbox";
+import type { Turn } from "@/lib/db/outbox";
 import { redact, REDACTED_CONTACT } from "@/lib/pii";
+import { clip, MAX_ATTEMPT_TEXT, MAX_ATTEMPTS_STORED, type Attempt } from "./shared";
 
-export const MAX_ATTEMPTS_STORED = 20;
-export const MAX_ATTEMPT_TEXT = 2000;
 const MAX_KEY = 64;
 /** e.g. "reask", "blocked", "reask:range". */
 const OUTCOME = /^[a-z_]{1,32}(?::[a-z_]{1,32})?$/;
@@ -59,6 +58,6 @@ export function cleanAttempts(raw: unknown, contact: ContactValue | undefined): 
     .map((a) => ({
       key: a.key,
       outcome: a.outcome,
-      text: redact([...a.text].slice(0, MAX_ATTEMPT_TEXT).join(""), contact),
+      text: redact(clip(a.text, MAX_ATTEMPT_TEXT), contact),
     }));
 }

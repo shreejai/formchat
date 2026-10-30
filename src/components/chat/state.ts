@@ -10,7 +10,8 @@ import {
   type Submission,
 } from "@/lib/flow";
 import { parseArea, parsePrice } from "@/lib/parsers";
-import { areaRetry, priceChange, priceConfirm, priceRetry, type PriceSanity } from "./messages";
+import { clip, MAX_ATTEMPT_TEXT, MAX_ATTEMPTS_STORED, MAX_TEXT, type Attempt } from "@/lib/submit/shared";
+import { areaRetry, priceChange, priceConfirm, priceRetry, textTooLong, type PriceSanity } from "./messages";
 
 /** A parsed price waiting for Yes or Change. Nothing is stored until Yes. */
 export type PendingPrice = {
@@ -31,15 +32,6 @@ export type Notice = {
   /** What the user typed, shown before the message when it wasn't stored. */
   input?: string;
 };
-
-/**
- * An input the chat didn't store, sent with the submit for analysis only. `outcome` is e.g.
- * "reask:range" (a parser re-ask) or "blocked" (from /api/describe).
- */
-export type Attempt = { key: string; text: string; outcome: string };
-
-/** Only the latest are kept; the server stores at most this many. */
-export const MAX_ATTEMPTS = 20;
 
 /** A value suggested for questions with `suggestedBy: from`, e.g. a title from the description. */
 export type Suggestion = { from: string; value: string };
@@ -63,6 +55,11 @@ export type ChatState = {
   needsReview: boolean;
   /** From /api/describe: signs the accepted html, needsReview and cost. Sent back on submit. */
   pdescToken: string | null;
+  /**
+   * The cost of the accepted describe call only. Re-asked, blocked and replaced calls aren't
+   * counted, so this under-reports a conversation's spend. Per-conversation totals move to the
+   * server with #14.
+   */
   aiCostUsd: number;
   attempts: Attempt[];
 };
@@ -134,8 +131,10 @@ function priceSanity(listingtype: AnswerValue | undefined, value: number): Price
   return null;
 }
 
+/** Text is cut here so a long paste can't push the submit body over the server's size limit. */
 function withAttempt(state: ChatState, attempt: Attempt): Attempt[] {
-  return [...state.attempts, attempt].slice(-MAX_ATTEMPTS);
+  const kept = { ...attempt, text: clip(attempt.text, MAX_ATTEMPT_TEXT) };
+  return [...state.attempts, kept].slice(-MAX_ATTEMPTS_STORED);
 }
 
 function store(schema: FormSchema, state: ChatState, q: Question, value: AnswerValue): ChatState {
@@ -215,6 +214,16 @@ export function chatReducer(
       }
       // Descriptions are only stored through describeAccepted, after the AI check.
       if (q.kind === "longtext") return state;
+      // The input has maxLength too; this keeps an over-long value from failing the submit.
+      const singleLine = q.kind === "text" || q.kind === "location";
+      if (singleLine && typeof action.value === "string" && action.value.length > MAX_TEXT) {
+        return {
+          ...state,
+          pendingPrice: null,
+          notice: { key: q.key, message: textTooLong, input: action.value },
+          attempts: withAttempt(state, { key: q.key, text: action.value, outcome: "reask:too_long" }),
+        };
+      }
       return store(schema, state, q, action.value);
     }
     case "describeAccepted": {

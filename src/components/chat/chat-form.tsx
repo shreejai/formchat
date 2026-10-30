@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import type { AnswerValue, FormSchema } from "@/forms/types";
 import { Composer } from "./composer";
-import { Confirmation, SubmissionPreview, SubmissionSuccess } from "./confirmation";
+import { Confirmation, SubmissionPreview, SubmissionSuccess, type SubmitError } from "./confirmation";
 import { describeAnswer, newConversationId } from "./describe";
 import { ChatHeader } from "./header";
 import { suggestionMessage } from "./messages";
@@ -34,7 +34,7 @@ export function ChatForm({
   /** A description being checked by the server, shown with a typing indicator. */
   const [checking, setChecking] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<SubmitError | null>(null);
   const debug = useSyncExternalStore(noSubscribe, isDebug, () => false);
 
   const asking = view.mode === "ask" || view.mode === "edit" ? view : null;
@@ -68,7 +68,7 @@ export function ChatForm({
     // Both are set once the description is accepted, which every complete listing has.
     const id = conversationId.current;
     if (!id || !state.pdescToken) {
-      setSubmitError(submitUnavailable);
+      setSubmitError({ message: submitUnavailable });
       return;
     }
     setSending(true);
@@ -83,7 +83,7 @@ export function ChatForm({
         attempts: state.attempts,
       });
       if (result.ok) dispatch({ type: "submit" });
-      else setSubmitError(result.message);
+      else setSubmitError({ message: result.message, field: result.field });
     } finally {
       setSending(false);
     }
