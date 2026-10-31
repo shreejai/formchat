@@ -28,3 +28,5 @@
 - 2026-10-30 16:54: Python service live on Render (Singapore, free): formchat-service.onrender.com, /health 200.
 - 2026-10-30 17:19: Ultrareview #2 on #15: 1 real bug (rejected-attempt analytics could push submit over the size cap, blocking the user) + 5 nits. Fixed 5; cost-per-conversation deferred to #14.
 - 2026-10-30 17:29: db:migrate failed: plain node doesn't load .env.local. Ran with --env-file; follow-up PR to fix the script.
+- 2026-10-31 13:45: Drain workflow went green but never reached the app: APP_URL redirected and curl treats 3xx as success. Fixed APP_URL; workflow now requires 200 + expected body.
+- 2026-10-31 13:57: Outbox rehearsal passed: Render suspended → submit → pending (503, 1 attempt) → resumed → drain delivered:1 (22s cold start) → leads count +1, no duplicate.
