@@ -27,7 +27,6 @@ export function ChatForm({
     initialChatState,
   );
   const view = chatView(schema, state);
-  const bottomRef = useRef<HTMLDivElement>(null);
   // Client-generated on first use (not during prerender), so the server's per-conversation
   // token cap is best effort; the per-IP rate limit is the real control.
   const conversationId = useRef<string | null>(null);
@@ -50,9 +49,12 @@ export function ChatForm({
 
   const askingKey = view.mode === "ask" ? view.question.key : null;
   const replyMessage = reply?.message;
+  // Scroll the page to its very end, not a sentinel into view: the composer is sticky at the
+  // bottom, so aligning a sentinel with the viewport's bottom edge leaves the new question
+  // hidden behind it. At the true end the composer sits below the transcript instead.
   useEffect(() => {
     if (askingKey || replyMessage || checking) {
-      bottomRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
     }
   }, [askingKey, replyMessage, checking]);
 
@@ -138,7 +140,6 @@ export function ChatForm({
             onEdit={edit}
           />
         )}
-        <div ref={bottomRef} />
       </main>
       {(view.mode === "ask" || view.mode === "edit") && !checking && (
         <Composer
